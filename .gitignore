@@ -1,4 +1,4 @@
-# ⚠️ CRITICAL SECURITY - Environment files with sensitive data
+# ⚠️ SECURITY - Environment files with sensitive data (CRITICAL)
 .env*
 *.env
 .env.local
@@ -6,6 +6,17 @@
 .env.production
 .env.staging
 .env.test
+
+# ⚠️ SECURITY - Any file that might contain passwords
+*password*
+*secret*
+*private*
+*key*
+*token*
+*credential*
+*auth*
+
+# ⚠️ SECURITY - Configuration files
 config.ini
 config.json
 secrets.json
@@ -15,6 +26,71 @@ keys.json
 tokens.json
 api_keys.txt
 secrets.txt
+
+# ⚠️ SECURITY - Output files and logs that might contain sensitive data
+output/
+reports/
+*.pdf
+*.xlsx
+*.json
+logs/
+*.log
+*.log.*
+*.gz
+
+# ⚠️ SECURITY - Backup files that might contain sensitive data
+*.backup*
+*backup*
+*yterayut*
+*teerayut*
+*.old
+*.orig
+*_copy*
+*_bak*
+*_backup*
+
+# ⚠️ SECURITY - Deployment and server files
+deploy*.sh
+deploy*.exp
+*.exp
+deploy.conf
+ssh_config
+known_hosts
+id_rsa*
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+server_config*
+db_config*
+connection_string*
+
+# ⚠️ SECURITY - Test and analysis files that may contain real data
+test_results_*.json
+system_analysis_results.json
+*_results.json
+*_analysis.json
+debug_*.json
+test_*.json
+*real*
+*production*
+*prod*
+*live*
+
+# ⚠️ SECURITY - Specific files that may contain sensitive data
+debug_*
+test_*
+simple_*
+quick_*
+temp_*
+send_*
+email_*
+line_*
+*email*test*
+*line*test*
+*password*test*
+*token*test*
 
 # Python
 __pycache__/
@@ -46,37 +122,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# ⚠️ SECURITY - Output files and logs that might contain sensitive data
-output/
-reports/
-*.pdf
-*.xlsx
-*.json
-logs/
-*.log
-*.log.*
-*.gz
-debug_*.py
-test_*.py
-temp_*.py
-*_debug.py
-*_test.py
-*_temp.py
-
-# ⚠️ SECURITY - Any file that might contain real data
-*real*
-*production*
-*prod*
-*live*
-
-# Temporary files
-*.tmp
-*.temp
-*.save
-*.backup*
-*~
-.DS_Store
-
 # IDE
 .vscode/
 .idea/
@@ -84,149 +129,70 @@ temp_*.py
 *.swo
 
 # System files
+.DS_Store
 Thumbs.db
 .directory
+*~
 
-# ⚠️ SECURITY - Sensitive configuration and deployment files
-deploy*.sh
-deploy*.exp
-*.exp
-deploy.conf
-*password*
-*secret*
-*private*
-*key*
-*token*
-*credential*
-*auth*
-ssh_config
-known_hosts
-id_rsa*
-*.pem
-*.p12
-*.pfx
-*.crt
-*.cer
-
-# ⚠️ SECURITY - Server and database connections
-server_config*
-db_config*
-connection_string*
-*_credentials*
-*_secrets*
-
-# ⚠️ SECURITY - Backup files that might contain sensitive data
-*.backup*
-*backup*
-*yterayut*
-*teerayut*
-*.01*
-*.02*
-*.success*
-*.old
-*.orig
-*_copy*
-*_bak*
-*_backup*
-
-# ⚠️ SECURITY - Test and analysis results
-test_results_*.json
-system_analysis_results.json
-*_results.json
-*_analysis.json
-debug_*.json
-test_*.json
-
-
-# ⚠️ CRITICAL SECURITY - Specific files that may contain sensitive data
-test_single_email.py
-comprehensive_system_analysis.py
-send_email_simple.py
-email_troubleshoot.py
-test_email_full.py
-"load_env copy.py"
-test_line_quick.py
-email_size_fix.py
-final_email_configuration.py
-debug_disk_data.py
-test_subject.py
-logo_fix_summary.py
-test_email_pdf_only.py
-test_line_v3.py
-test_pdf_with_charts.py
-quick_cpu_checker.py
-test_line_direct.py
-test_individual_delivery.py
-test_cron_environment.py
-test_email_delivery.py
-test_email_fixed.py
-test_storage_fix.py
-simple_email_test.py
-simple_test.py
-production_status_check.py
-debug_zabbix_items.py
-install.py
-debug_storage.py
-send_manual_pdf.py
-final_system_status.py
-send_email.py
-memory_keys_checker_full.py
-daily_summary.py
-main.py.disabled
-
-# ⚠️ SECURITY - Any file with sensitive naming patterns
-*email*test*
-*line*test*
-*password*test*
-*token*test*
-*debug*email*
-*debug*line*
-*test*delivery*
-*production*status*
-*final*email*
-*final*system*
-check_*
-debug_*
-test_*
-simple_*
-quick_*
-temp_*
-send_*
-email_*
-line_*
-
-# ⚠️ SECURITY - VM Monitoring specific sensitive files
-vm_report.log
-cron.log*
-alerts.log*
-.last_resource_alert.json
-
-# ⚠️ SECURITY - Documentation that might contain sensitive info
-*manual*.pdf
-*manual*.html
-VM_Infrastructure_*
-*dashboard*.html
-dashboard-settings.html
-
-# ⚠️ SECURITY - Service files that might contain server info
+# Service files
 *.service
 *monitoring.service
 *dashboard.service
-load_env copy.py
 
-# ⚠️ SECURITY - Files containing specific server/user information
+# Security incident response
+security_incident_response.py
+clean_git_history.sh
+
+# Additional sensitive files - Added by security cleanup
+.env.key
+.env.yterayut
+.env.yterayut.disabled
+.env.yterayut.backup.*
+cron.log*
+alerts.log*
+.last_resource_alert.json
+vm_report.log
+deploy_password.sh
+deploy_quick.sh
+deploy_simple.sh
+deploy_smart.sh
 sync_deploy.sh
-start_dashboard.sh
 setup_dev.sh
 setup_logrotate_project_vm.sh
-NEW_CHAT_COMPLETE_GUIDE.md
-NEW_CHAT_QUICK_REFERENCE.md
-NEW_CHAT_MESSAGE.txt
-QUICK_START_MESSAGE.txt
-"load_env copy.py"
-
-# ⚠️ SECURITY - Generated files that might contain real server info
+start_dashboard.sh
 watch_deploy.sh
-
-# ⚠️ SECURITY - Original files containing personal information
+NEW_CHAT_COMPLETE_GUIDE.md
+NEW_CHAT_MESSAGE.txt
+NEW_CHAT_QUICK_REFERENCE.md
 PROJECT_DEVELOPMENT_LOG.md
+QUICK_START_MESSAGE.txt
+diagnose_email_config.py
+fix_email_config.py
+comprehensive_system_analysis.py
+final_email_configuration.py
+final_system_status.py
+logo_fix_summary.py
+production_status_check.py
+check_alerts_only.py
+check_critical_alerts.py
+check_line_friendship.py
+daily_summary.py
+install.py
+mobile_dashboard.html
+vm_monitoring_manual.html
+dashboard-settings.html
+VM_Monitoring_Mobile_Dashboard.html
+*.save
+*.success
+*.success2
+*.01062025
+load_env copy.py
+main.py.disabled
+mobile_api.py.save
+generate_report.py.save
+generate_report.py.success*
+fetch_zabbix_data.py.save
+fetch_zabbix_data.py.01062025
+daily_report.py.save
+daily_report.py.success
+apiVersion:.save

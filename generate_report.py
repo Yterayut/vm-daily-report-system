@@ -608,16 +608,36 @@ class EnhancedReportGenerator:
         }
 
         .status-online {
-            background: rgba(46, 204, 113, 0.2);
-            color: #155724;
-            border: 1px solid #2ecc71;
+            background: #27ae60;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 8pt;
+            font-weight: bold;
         }
 
         .status-offline {
-            background: rgba(231, 76, 60, 0.2);
-            color: #721c24;
-            border: 1px solid #e74c3c;
+            background: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 8pt;
+            font-weight: bold;
         }
+
+        /* Health Indicators */
+        .health-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        .health-excellent { background: #27ae60; }
+        .health-good { background: #f39c12; }
+        .health-poor { background: #e74c3c; }
 
         .metric-value {
             font-weight: 500;
@@ -910,13 +930,14 @@ class EnhancedReportGenerator:
                             <span class="metric-value {{ disk_class }}">{{ vm.disk_used|round(1) }}%</span>
                         </td>
                         <td class="text-center">
-                            {{ vm.performance_rating|performance_icon }} {{ vm.health_score or 0 }}
+                            {% set health_class = 'health-excellent' if vm.health_score >= 90 else 'health-good' if vm.health_score >= 70 else 'health-poor' %}
+                            <span class="health-indicator {{ health_class }}"></span>{{ vm.health_score or 0 }}
                         </td>
                         <td class="text-center">
                             {% if vm.is_online %}
-                                <span class="status-badge status-online">🟢 Online</span>
+                                <span class="status-online">ONLINE</span>
                             {% else %}
-                                <span class="status-badge status-offline">🔴 Offline</span>
+                                <span class="status-offline">OFFLINE</span>
                             {% endif %}
                         </td>
                     </tr>

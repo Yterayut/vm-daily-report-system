@@ -57,13 +57,13 @@ class EnhancedVMReportOrchestrator:
         """Setup graceful shutdown handlers"""
         def signal_handler(signum, frame):
             if self.logger:
-                self.logger.info(f"⚠️ Received signal {signum}, shutting down gracefully...")
+                self.logger.info("⚠️ Received signal {}, shutting down gracefully...".format(signum))
             sys.exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
     
-    def initialize(self) -> bool:
+    def initialize(self):
         """Enhanced initialization with comprehensive validation and alert system setup"""
         print("🚀 Enhanced VM Daily Report System with Alert Integration")
         print("=" * 70)

@@ -267,6 +267,8 @@ def get_config_dict() -> Dict[str, Any]:
             'sender_email': os.getenv('SENDER_EMAIL'),
             'sender_name': os.getenv('SENDER_NAME', 'VM Monitoring System'),
             'to_emails': [email.strip() for email in os.getenv('TO_EMAILS', '').split(',') if email.strip()],
+            'cc_emails': [email.strip() for email in os.getenv('CC_EMAILS', '').split(',') if email.strip()],
+            'bcc_emails': [email.strip() for email in os.getenv('BCC_EMAILS', '').split(',') if email.strip()],
             'use_tls': os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
         },
         'report': {
