@@ -32,9 +32,9 @@ def safe_log_info(message):
         if log:
             log.info(message)
         else:
-            print(f"INFO: {message}")
+            print("INFO: {}".format(message))
     except:
-        print(f"INFO: {message}")
+        print("INFO: {}".format(message))
 
 def safe_log_error(message):
     """Safe logging error"""
@@ -43,9 +43,9 @@ def safe_log_error(message):
         if log:
             log.error(message)
         else:
-            print(f"ERROR: {message}")
+            print("ERROR: {}".format(message))
     except:
-        print(f"ERROR: {message}")
+        print("ERROR: {}".format(message))
 
 def safe_log_warning(message):
     """Safe logging warning"""
@@ -54,9 +54,9 @@ def safe_log_warning(message):
         if log:
             log.warning(message)
         else:
-            print(f"WARNING: {message}")
+            print("WARNING: {}".format(message))
     except:
-        print(f"WARNING: {message}")
+        print("WARNING: {}".format(message))
 
 
 class SecureEnvLoader:
@@ -81,7 +81,7 @@ class SecureEnvLoader:
                 safe_log_info("🔑 New encryption key generated")
                 return key
         except Exception as e:
-            safe_log_warning(f"⚠️ Could not handle encryption key: {e}")
+            safe_log_warning("⚠️ Could not handle encryption key: {}".format(e))
             return None
     
     def encrypt_value(self, value: str) -> str:
@@ -91,9 +91,9 @@ class SecureEnvLoader:
         try:
             f = Fernet(self.encryption_key)
             encrypted = f.encrypt(value.encode())
-            return f"ENC:{base64.b64encode(encrypted).decode()}"
+            return "ENC:{}".format(base64.b64encode(encrypted).decode())
         except Exception as e:
-            safe_log_warning(f"⚠️ Encryption failed: {e}")
+            safe_log_warning("⚠️ Encryption failed: {}".format(e))
             return value
     
     def decrypt_value(self, value: str) -> str:
@@ -105,13 +105,13 @@ class SecureEnvLoader:
             encrypted_data = base64.b64decode(value[4:])
             return f.decrypt(encrypted_data).decode()
         except Exception as e:
-            safe_log_warning(f"⚠️ Decryption failed: {e}")
+            safe_log_warning("⚠️ Decryption failed: {}".format(e))
             return value
     
     def load_env_file(self) -> bool:
         """Load environment variables with enhanced security"""
         if not self.env_path.exists():
-            safe_log_error(f"❌ Environment file not found: {self.env_path}")
+            safe_log_error("❌ Environment file not found: {}".format(self.env_path))
             return False
         
         try:
@@ -143,13 +143,13 @@ class SecureEnvLoader:
                         os.environ[key] = value
                         loaded_vars += 1
                     else:
-                        safe_log_warning(f"⚠️ Invalid format at line {line_num}: {line}")
+                        safe_log_warning("⚠️ Invalid format at line {}: {}".format(line_num, line))
             
-            safe_log_info(f"✅ Loaded {loaded_vars} environment variables from: {self.env_path}")
+            safe_log_info("✅ Loaded {} environment variables from: {}".format(loaded_vars, self.env_path))
             return True
             
         except Exception as e:
-            safe_log_error(f"❌ Error loading environment file: {e}")
+            safe_log_error("❌ Error loading environment file: {}".format(e))
             return False
     
     def validate_required_vars(self) -> bool:
@@ -170,26 +170,26 @@ class SecureEnvLoader:
         for var, description in required_vars.items():
             value = os.getenv(var)
             if not value:
-                missing_vars.append(f"{var} - {description}")
+                missing_vars.append("{} - {description}".format(var))
             else:
                 # Basic validation
                 if var.endswith('_EMAIL') or var == 'TO_EMAILS':
                     if '@' not in value:
-                        invalid_vars.append(f"{var} - Invalid email format")
+                        invalid_vars.append("{} - Invalid email format".format(var))
                 elif var == 'ZABBIX_URL':
                     if not (value.startswith('http://') or value.startswith('https://')):
-                        invalid_vars.append(f"{var} - Must be valid URL")
+                        invalid_vars.append("{} - Must be valid URL".format(var))
         
         if missing_vars or invalid_vars:
             safe_log_error("❌ Configuration validation failed:")
             if missing_vars:
                 safe_log_error("Missing variables:")
                 for var in missing_vars:
-                    safe_log_error(f"   - {var}")
+                    safe_log_error("   - {}".format(var))
             if invalid_vars:
                 safe_log_error("Invalid variables:")
                 for var in invalid_vars:
-                    safe_log_error(f"   - {var}")
+                    safe_log_error("   - {}".format(var))
             return False
         
         safe_log_info("✅ All required environment variables validated successfully")
@@ -212,7 +212,7 @@ class SecureEnvLoader:
         print("="*60)
         
         for group_name, vars_list in config_groups.items():
-            print(f"\n🔧 {group_name}:")
+            print("\n🔧 {}:".format(group_name))
             print("-" * 40)
             
             for var in vars_list:
@@ -223,9 +223,9 @@ class SecureEnvLoader:
                         display_value = "***ENCRYPTED***" if value.startswith("ENC:") else "***HIDDEN***"
                     else:
                         display_value = value
-                    print(f"✅ {var}: {display_value}")
+                    print("✅ {}: {display_value}".format(var))
                 else:
-                    print(f"❌ {var}: Not set")
+                    print("❌ {}: Not set".format(var))
         
         print("\n" + "="*60)
         print("🔒 Security: Sensitive values are encrypted/hidden")

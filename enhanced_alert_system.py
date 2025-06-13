@@ -50,21 +50,21 @@ def log_info(message):
     try:
         get_logger().info(message)
     except:
-        print(f"INFO: {message}")
+        print("INFO: {}".format(message))
 
 def log_warning(message):
     """Safe logging warning"""
     try:
         get_logger().warning(message)
     except:
-        print(f"WARNING: {message}")
+        print("WARNING: {}".format(message))
 
 def log_error(message):
     """Safe logging error"""
     try:
         get_logger().error(message)
     except:
-        print(f"ERROR: {message}")
+        print("ERROR: {}".format(message))
 
 class AlertLevel(Enum):
     """Alert severity levels"""
@@ -174,18 +174,19 @@ class EnhancedAlertSystem:
                 self.line_bot_api = LineBotApi(self.config.line_channel_access_token)
                 log_info("✅ LINE Bot API initialized successfully")
             except Exception as e:
-                log_error(f"❌ Failed to initialize LINE Bot API: {e}")
+                log_error("❌ Failed to initialize LINE Bot API: {}".format(e))
                 self.line_bot_api = None
         else:
             log_warning("⚠️ LINE_CHANNEL_ACCESS_TOKEN not configured")
     
     def analyze_vm_alerts(self, vm_data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Analyze VM data and generate alerts"""
+        """Analyze VM data and generate alerts including power state changes"""
         alerts = {
             'critical': [],
             'warning': [],
             'offline': [],
-            'healthy': []
+            'healthy': [],
+            'power_changes': []  # New: Power state change alerts
         }
         
         for vm in vm_data:
@@ -195,7 +196,7 @@ class EnhancedAlertSystem:
             if not is_online:
                 alerts['offline'].append({
                     'vm': vm_name,
-                    'message': f"{vm_name} is OFFLINE",
+                    'message': "{} is OFFLINE".format(vm_name),
                     'level': AlertLevel.CRITICAL
                 })
                 continue
@@ -208,7 +209,7 @@ class EnhancedAlertSystem:
                     'metric': 'CPU',
                     'value': cpu,
                     'threshold': self.config.cpu_critical_threshold,
-                    'message': f"{vm_name}: CPU {cpu:.1f}% (Critical)",
+                    'message': "{}: CPU {:.1f}% (Critical)".format(vm_name, cpu),
                     'level': AlertLevel.CRITICAL
                 })
             elif cpu >= self.config.cpu_warning_threshold:
@@ -217,7 +218,7 @@ class EnhancedAlertSystem:
                     'metric': 'CPU',
                     'value': cpu,
                     'threshold': self.config.cpu_warning_threshold,
-                    'message': f"{vm_name}: CPU {cpu:.1f}% (Warning)",
+                    'message': "{}: CPU {:.1f}% (Warning)".format(vm_name, cpu),
                     'level': AlertLevel.WARNING
                 })
             
@@ -229,7 +230,7 @@ class EnhancedAlertSystem:
                     'metric': 'Memory',
                     'value': memory,
                     'threshold': self.config.memory_critical_threshold,
-                    'message': f"{vm_name}: Memory {memory:.1f}% (Critical)",
+                    'message': "{}: Memory {:.1f}% (Critical)".format(vm_name, memory),
                     'level': AlertLevel.CRITICAL
                 })
             elif memory >= self.config.memory_warning_threshold:
@@ -238,7 +239,7 @@ class EnhancedAlertSystem:
                     'metric': 'Memory',
                     'value': memory,
                     'threshold': self.config.memory_warning_threshold,
-                    'message': f"{vm_name}: Memory {memory:.1f}% (Warning)",
+                    'message': "{}: Memory {:.1f}% (Warning)".format(vm_name, memory),
                     'level': AlertLevel.WARNING
                 })
             
@@ -250,7 +251,7 @@ class EnhancedAlertSystem:
                     'metric': 'Disk',
                     'value': disk,
                     'threshold': self.config.disk_critical_threshold,
-                    'message': f"{vm_name}: Disk {disk:.1f}% (Critical)",
+                    'message': "{}: Disk {:.1f}% (Critical)".format(vm_name, disk),
                     'level': AlertLevel.CRITICAL
                 })
             elif disk >= self.config.disk_warning_threshold:
@@ -259,7 +260,7 @@ class EnhancedAlertSystem:
                     'metric': 'Disk',
                     'value': disk,
                     'threshold': self.config.disk_warning_threshold,
-                    'message': f"{vm_name}: Disk {disk:.1f}% (Warning)",
+                    'message': "{}: Disk {:.1f}% (Warning)".format(vm_name, disk),
                     'level': AlertLevel.WARNING
                 })
             
@@ -271,7 +272,88 @@ class EnhancedAlertSystem:
             ]):
                 alerts['healthy'].append(vm_name)
         
+        # Check for power state changes in any VM
+        power_changes = self._extract_power_changes(vm_data)
+        if power_changes:
+            alerts['power_changes'] = power_changes
+        
         return alerts
+    
+    def _extract_power_changes(self, vm_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract power state changes from VM data"""
+        power_change_alerts = []
+        
+        for vm in vm_data:
+            power_changes = vm.get('power_changes')
+            if not power_changes or not power_changes.get('has_changes', False):
+                continue
+            
+            # Process power change alerts
+            alerts = power_changes.get('alerts', [])
+            for alert in alerts:
+                power_change_alerts.append({
+                    'type': alert.get('type', 'unknown'),
+                    'level': alert.get('level', 'INFO'),
+                    'title': alert.get('title', 'Power State Change'),
+                    'message': alert.get('message', ''),
+                    'icon': alert.get('icon', '🔄'),
+                    'details': alert.get('details', {}),
+                    'timestamp': alert.get('timestamp', ''),
+                    'vm_name': alert.get('details', {}).get('vm_name', 'Unknown'),
+                    'hostname': alert.get('details', {}).get('hostname', 'Unknown'),
+                    'ip': alert.get('details', {}).get('ip', 'N/A')
+                })
+        
+        return power_change_alerts
+    
+    def send_power_change_alerts(self, power_changes: List[Dict[str, Any]]) -> bool:
+        """Send power state change alerts via LINE and Email"""
+        if not power_changes:
+            return True
+        
+        # Limit power change alerts to avoid rate limiting
+        max_alerts = 5  # Limit to 5 alerts to avoid LINE rate limits
+        limited_changes = power_changes[:max_alerts]
+        
+        success_count = 0
+        total_alerts = len(limited_changes)
+        
+        if len(power_changes) > max_alerts:
+            log_info("🔄 Limiting power change alerts to {} out of {} to avoid rate limits".format(max_alerts, len(power_changes)))
+        
+        for change in limited_changes:
+            # Send LINE notification for each change
+            line_message = self._format_power_change_line_message(change)
+            if self.send_line_alert(line_message, AlertLevel.INFO):
+                success_count += 1
+        
+        log_info("🔄 Sent {}/{} power change alerts (limited from {})".format(success_count, total_alerts, len(power_changes)))
+        return success_count == total_alerts
+    
+    def _format_power_change_line_message(self, change: Dict[str, Any]) -> str:
+        """Format power change for LINE message"""
+        icon = change.get('icon', '🔄')
+        title = change.get('title', 'Power State Change')
+        vm_name = change.get('vm_name', 'Unknown')
+        hostname = change.get('hostname', 'Unknown')
+        ip = change.get('ip', 'N/A')
+        change_type = change.get('type', 'unknown')
+        
+        message = f"""{icon} {title}
+        
+🖥️ VM: {vm_name}
+🏷️ Host: {hostname}
+🌐 IP: {ip}
+⚡ Event: {change_type.replace('_', ' ').title()}"""
+        
+        # Add specific details based on change type
+        details = change.get('details', {})
+        if change_type == 'recovery' and 'downtime_duration' in details:
+            message += f"\n⏱️ Downtime: {details['downtime_duration']}"
+        elif change_type == 'power_off' and 'last_seen' in details:
+            message += f"\n⏰ Last Seen: {details['last_seen']}"
+        
+        return message
     
     def send_line_alert(self, message: str, alert_level: AlertLevel = AlertLevel.INFO) -> bool:
         """Send alert to LINE OA with enhanced formatting"""
@@ -308,14 +390,14 @@ VM Monitoring System"""
                 TextSendMessage(text=formatted_message)
             )
             
-            log_info(f"✅ LINE alert sent successfully ({alert_level.value})")
+            log_info("✅ LINE alert sent successfully ({})".format(alert_level.value))
             return True
             
         except LineBotApiError as e:
-            log_error(f"❌ LINE Bot API error: {e}")
+            log_error("❌ LINE Bot API error: {}".format(e))
             return False
         except Exception as e:
-            log_error(f"❌ Failed to send LINE alert: {e}")
+            log_error("❌ Failed to send LINE alert: {}".format(e))
             return False
     
     def send_email_alert(self, subject: str, body: str, alert_level: AlertLevel = AlertLevel.INFO, 
@@ -328,7 +410,7 @@ VM Monitoring System"""
             
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = f"{self.config.sender_name} <{self.config.sender_email}>"
+            msg['From'] = "{} <{}>".format(self.config.sender_name, self.config.sender_email)
             
             # Set TO recipients
             if self.config.to_emails:
@@ -342,9 +424,9 @@ VM Monitoring System"""
             
             # Add anti-spam headers
             msg['Reply-To'] = self.config.sender_email
-            msg['Message-ID'] = f"<{datetime.now().strftime('%Y%m%d%H%M%S')}.{hash(subject)}@one-climate.monitoring>"
+            msg['Message-ID'] = "<{}.{}@one-climate.monitoring>".format(datetime.now().strftime('%Y%m%d%H%M%S'), hash(subject))
             msg['X-Mailer'] = 'One Climate VM Monitoring System v2.0'
-            msg['List-Unsubscribe'] = f'<mailto:{self.config.sender_email}?subject=Unsubscribe>'
+            msg['List-Unsubscribe'] = '<mailto:{}?subject=Unsubscribe>'.format(self.config.sender_email)
             
             # Add priority based on alert level
             if alert_level in [AlertLevel.CRITICAL, AlertLevel.EMERGENCY]:
@@ -372,9 +454,9 @@ VM Monitoring System"""
                         filename=Path(pdf_path).name
                     )
                     msg.attach(attachment)
-                    log_info(f"📎 PDF attached: {Path(pdf_path).name}")
+                    log_info("📎 PDF attached: {}".format(Path(pdf_path).name))
                 except Exception as e:
-                    log_warning(f"⚠️ Failed to attach PDF: {e}")
+                    log_warning("⚠️ Failed to attach PDF: {}".format(e))
             
             # Send email with proper Gmail SMTP configuration
             try:
@@ -394,15 +476,15 @@ VM Monitoring System"""
                     # Send to all recipients (TO, CC, BCC)
                     server.sendmail(self.config.sender_email, all_recipients, msg.as_string())
                 
-                log_info(f"✅ Email alert sent successfully ({alert_level.value}) to {len(all_recipients)} recipients")
+                log_info("✅ Email alert sent successfully ({}) to {} recipients".format(alert_level.value, len(all_recipients)))
                 return True
                 
             except Exception as e:
-                log_warning(f"⚠️ Email sending failed: {e}")
+                log_warning("⚠️ Email sending failed: {}".format(e))
                 return False
             
         except Exception as e:
-            log_warning(f"⚠️ Email system error: {e}")
+            log_warning("⚠️ Email system error: {}".format(e))
             return False
     
     def send_comprehensive_alert(self, vm_data: List[Dict[str, Any]], summary: Dict[str, Any], 
@@ -483,14 +565,14 @@ VM Monitoring System"""
             failed_channels = [channel for channel, success in results.items() if not success]
             
             if successful_channels:
-                log_info(f"✅ Alerts sent via: {', '.join(successful_channels)}")
+                log_info("✅ Alerts sent via: {}".format(', '.join(successful_channels)))
             if failed_channels:
-                log_warning(f"⚠️ Failed to send alerts via: {', '.join(failed_channels)}")
+                log_warning("⚠️ Failed to send alerts via: {}".format(', '.join(failed_channels)))
             
             return results
             
         except Exception as e:
-            log_error(f"❌ Failed to send comprehensive alert: {e}")
+            log_error("❌ Failed to send comprehensive alert: {}".format(e))
             return results
     
     def _get_channels_for_level(self, alert_level: AlertLevel) -> List[AlertChannel]:
@@ -529,23 +611,23 @@ System Status: {summary.get('system_status', 'unknown').upper()}
         if alerts['offline']:
             message += "=== OFFLINE SYSTEMS ===\n"
             for alert in alerts['offline']:
-                message += f"🔴 {alert['message']}\n"
+                message += "🔴 {}\n".format(alert['message'])
             message += "\n"
         
         # Add critical alerts
         if alerts['critical']:
             message += "=== CRITICAL ALERTS ===\n"
             for alert in alerts['critical']:
-                message += f"🚨 {alert['message']}\n"
+                message += "🚨 {}\n".format(alert['message'])
             message += "\n"
         
         # Add warning alerts
         if alerts['warning']:
             message += "=== WARNING ALERTS ===\n"
             for alert in alerts['warning'][:5]:  # Limit to first 5
-                message += f"⚠️ {alert['message']}\n"
+                message += "⚠️ {}\n".format(alert['message'])
             if len(alerts['warning']) > 5:
-                message += f"... and {len(alerts['warning']) - 5} more warnings\n"
+                message += "... and {} more warnings\n".format(len(alerts['warning']) - 5)
             message += "\n"
         
         # Add performance summary
@@ -565,22 +647,27 @@ System Status: {summary.get('system_status', 'unknown').upper()}
     def _create_email_subject(self, summary: Dict[str, Any], alert_level: AlertLevel) -> str:
         """Create email subject based on summary and alert level"""
         current_date = datetime.now().strftime('%Y-%m-%d')
-        base_subject = f"VM Infrastructure Alert - {current_date}"
+        base_subject = "VM Infrastructure Alert - {}".format(current_date)
         
         total_vms = summary.get('total', 0)
         offline_vms = summary.get('offline', 0)
-        critical_alerts = summary.get('alerts', {}).get('critical', 0)
-        warning_alerts = summary.get('alerts', {}).get('warning', 0)
+        # Get alert counts from analyze_vm_alerts result or summary
+        if 'alerts' in summary:
+            critical_alerts = summary['alerts'].get('critical', 0)
+            warning_alerts = summary['alerts'].get('warning', 0)
+        else:
+            critical_alerts = 0
+            warning_alerts = 0
         
         if alert_level == AlertLevel.CRITICAL:
             if offline_vms > 0:
-                return f"{base_subject} 🚨 {offline_vms} VMs OFFLINE"
+                return "{} 🚨 {} VMs OFFLINE".format(base_subject, offline_vms)
             elif critical_alerts > 0:
-                return f"{base_subject} 🚨 {critical_alerts} CRITICAL ALERTS"
+                return "{} 🚨 {} CRITICAL ALERTS".format(base_subject, critical_alerts)
         elif alert_level == AlertLevel.WARNING:
-            return f"{base_subject} ⚠️ {warning_alerts} Warnings"
+            return "{} ⚠️ {} Warnings".format(base_subject, warning_alerts)
         else:
-            return f"{base_subject} ✅ All Systems Normal"
+            return "{} ✅ All Systems Normal".format(base_subject)
         
         return base_subject
 
@@ -593,7 +680,7 @@ def send_enhanced_alerts(vm_data: List[Dict[str, Any]], summary: Dict[str, Any],
         results = alert_system.send_comprehensive_alert(vm_data, summary, pdf_path)
         return any(results.values())
     except Exception as e:
-        log_error(f"❌ Enhanced alerts failed: {e}")
+        log_error("❌ Enhanced alerts failed: {}".format(e))
         return False
 
 # Backward compatibility function
@@ -616,8 +703,8 @@ if __name__ == "__main__":
                 "🧪 Enhanced Alert System Test\n✅ LINE integration working!",
                 AlertLevel.INFO
             )
-            print(f"LINE test: {'✅ Success' if success else '❌ Failed'}")
+            print("LINE test: {}".format('✅ Success' if success else '❌ Failed'))
         else:
             print("❌ LINE not configured")
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print("❌ Test failed: {}".format(e))

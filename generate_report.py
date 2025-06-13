@@ -49,9 +49,9 @@ def safe_log_info(message):
         if log:
             log.info(message)
         else:
-            print(f"INFO: {message}")
+            print("INFO: {}".format(message))
     except:
-        print(f"INFO: {message}")
+        print("INFO: {}".format(message))
 
 def safe_log_error(message):
     """Safe logging error"""
@@ -60,9 +60,9 @@ def safe_log_error(message):
         if log:
             log.error(message)
         else:
-            print(f"ERROR: {message}")
+            print("ERROR: {}".format(message))
     except:
-        print(f"ERROR: {message}")
+        print("ERROR: {}".format(message))
 
 class EnhancedReportGenerator:
     """Enhanced professional report generator with comprehensive features"""
@@ -105,7 +105,7 @@ class EnhancedReportGenerator:
     def _format_percentage(self, value: float, decimals: int = 1) -> str:
         """Format percentage values - FIXED"""
         try:
-            return f"{float(value):.{decimals}f}%"
+            return "{:.{}f}%".format(float(value), decimals)
         except (ValueError, TypeError):
             return "0.0%"
     
@@ -179,16 +179,16 @@ class EnhancedReportGenerator:
                     else:
                         continue
 
-                    safe_log_info(f"✅ Using logo from: {logo_path}")
+                    safe_log_info("✅ Using logo from: {}".format(logo_path))
                     return (
-                        f'<img src="data:{mime_type};base64,{logo_data}" '
+                        '<img src="data:{};base64,{}" '.format(mime_type, logo_data) +
                         'style="width: 280px; height: 87px; object-fit: contain; '
                         'filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));" '
                         'alt="One Climate Logo">'
                     )
 
                 except Exception as e:
-                    safe_log_error(f"⚠️ Could not load logo from {logo_path}: {e}")
+                    safe_log_error("⚠️ Could not load logo from {}: {}".format(logo_path, e))
                     continue
 
         # Fallback to enhanced SVG version if no file found
@@ -262,10 +262,11 @@ class EnhancedReportGenerator:
         }
 
         body {
-            font-family: 'Helvetica Neue', Arial, 'Segoe UI', sans-serif;
-            line-height: 1.6;
+            font-family: 'Arial', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            line-height: 1.5;
             color: #2c3e50;
             font-size: 11px;
+            font-weight: 400;
         }
 
         .page-break {
@@ -334,11 +335,11 @@ class EnhancedReportGenerator:
         }
 
         .cover-title {
-            font-size: 52px;
-            font-weight: 200;
-            line-height: 1.1;
-            margin-bottom: 30px;
-            text-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            font-size: 48px;
+            font-weight: 300;
+            line-height: 1.2;
+            margin-bottom: 25px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .title-highlight {
@@ -350,15 +351,15 @@ class EnhancedReportGenerator:
         }
 
         .cover-subtitle {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 300;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
             line-height: 1.4;
             opacity: 0.95;
         }
 
         .subtitle-detail {
-            font-size: 18px;
+            font-size: 16px;
             opacity: 0.8;
         }
 
@@ -371,13 +372,13 @@ class EnhancedReportGenerator:
 
         .cover-date {
             background: rgba(255,255,255,0.2);
-            padding: 20px 35px;
-            border-radius: 35px;
-            font-size: 20px;
+            padding: 16px 28px;
+            border-radius: 28px;
+            font-size: 18px;
             font-weight: 500;
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.1);
         }
 
         .cover-stats {
@@ -395,16 +396,16 @@ class EnhancedReportGenerator:
         }
 
         .stat-number {
-            font-size: 28px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 600;
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .stat-label {
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             opacity: 0.9;
         }
 
@@ -452,21 +453,21 @@ class EnhancedReportGenerator:
         }
 
         .page-title {
-            font-size: 28px;
-            font-weight: 300;
+            font-size: 24px;
+            font-weight: 600;
             color: #2c3e50;
-            border-bottom: 4px solid #2ecc71;
-            padding-bottom: 12px;
-            margin-bottom: 30px;
+            border-bottom: 3px solid #2ecc71;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
         }
 
         .section-title {
-            font-size: 20px;
-            font-weight: 500;
+            font-size: 16px;
+            font-weight: 600;
             color: #2c3e50;
-            margin: 25px 0 15px 0;
+            margin: 20px 0 12px 0;
             border-bottom: 2px solid #2ecc71;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
         }
 
         .kpi-grid {
@@ -492,9 +493,9 @@ class EnhancedReportGenerator:
         .kpi-card.critical { border-left-color: #e74c3c; }
 
         .kpi-number {
-            font-size: 32px;
-            font-weight: 300;
-            margin-bottom: 8px;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
 
         .kpi-number.online { color: #2ecc71; }
@@ -503,11 +504,11 @@ class EnhancedReportGenerator:
         .kpi-number.critical { color: #e74c3c; }
 
         .kpi-label {
-            font-size: 12px;
+            font-size: 11px;
             color: #6c757d;
             font-weight: 500;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
 
         .kpi-percentage {
@@ -553,15 +554,16 @@ class EnhancedReportGenerator:
         }
 
         .performance-value {
-            font-size: 24px;
-            font-weight: 300;
-            margin-bottom: 5px;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 4px;
             color: #2ecc71;
         }
 
         .performance-detail {
-            font-size: 11px;
+            font-size: 10px;
             color: #6c757d;
+            font-weight: 400;
         }
 
         .vm-table {
@@ -573,21 +575,24 @@ class EnhancedReportGenerator:
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(46, 204, 113, 0.1);
             font-size: 10px;
+            font-weight: 400;
         }
 
         .vm-table th {
             background: linear-gradient(135deg, #2ecc71 0%, #3498db 100%);
             color: white;
-            padding: 12px 8px;
+            padding: 10px 6px;
             text-align: left;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 11px;
         }
 
         .vm-table td {
-            padding: 10px 8px;
+            padding: 8px 6px;
             border-bottom: 1px solid rgba(46, 204, 113, 0.1);
             vertical-align: middle;
+            font-weight: 400;
+            color: #2c3e50;
         }
 
         .vm-table tr:nth-child(even) {
@@ -596,6 +601,69 @@ class EnhancedReportGenerator:
 
         .vm-table tr:hover {
             background: rgba(46, 204, 113, 0.08);
+        }
+
+        /* Enhanced VM Table Styling */
+        .metric-value {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .metric-normal {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+        }
+
+        .metric-medium {
+            background: rgba(243, 156, 18, 0.1);
+            color: #f39c12;
+        }
+
+        .metric-high {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+        }
+
+        .health-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .health-excellent {
+            background: #27ae60;
+        }
+
+        .health-good {
+            background: #f39c12;
+        }
+
+        .health-poor {
+            background: #e74c3c;
+        }
+
+        .status-online {
+            background: #27ae60;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-offline {
+            background: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .status-badge {
@@ -888,35 +956,42 @@ class EnhancedReportGenerator:
         return """
         <div class="page-break"></div>
         <div class="details-page">
-            <h1 class="page-title">Virtual Machine Inventory</h1>
+            <h1 class="page-title">📊 Virtual Machine Inventory</h1>
             
-            <h2 class="section-title">📋 Complete System Inventory</h2>
+            <!-- Removed redundant info box as requested -->
             
             <table class="vm-table">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">#</th>
-                        <th style="width: 25%;">VM Name</th>
-                        <th style="width: 15%;">IP Address</th>
-                        <th style="width: 10%;">CPU %</th>
-                        <th style="width: 10%;">Memory %</th>
-                        <th style="width: 10%;">Disk %</th>
-                        <th style="width: 10%;">Health</th>
-                        <th style="width: 15%;">Status</th>
+                        <th style="width: 4%; text-align: center;">No</th>
+                        <th style="width: 28%;">VM Name</th>
+                        <th style="width: 12%;">IP Address</th>
+                        <th style="width: 10%; text-align: center;">CPU %</th>
+                        <th style="width: 10%; text-align: center;">Memory %</th>
+                        <th style="width: 10%; text-align: center;">Disk %</th>
+                        <th style="width: 10%; text-align: center;">Health</th>
+                        <th style="width: 16%; text-align: center;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for vm in vm_data %}
                     <tr>
-                        <td class="text-center">{{ loop.index }}</td>
-                        <td class="font-bold">
-                            {% if vm.name|length > 25 %}
-                                {{ vm.name[:25] }}...
-                            {% else %}
-                                {{ vm.name }}
+                        <td class="text-center" style="font-weight: 500; color: #6c757d; font-size: 10px;">{{ loop.index }}</td>
+                        <td style="font-weight: 500;">
+                            <div style="color: #2c3e50; font-size: 11px;">
+                                {% if vm.name|length > 30 %}
+                                    {{ vm.name[:30] }}...
+                                {% else %}
+                                    {{ vm.name }}
+                                {% endif %}
+                            </div>
+                            {% if vm.hostname and vm.hostname != vm.name %}
+                            <div style="font-size: 9px; color: #6c757d; margin-top: 1px; font-weight: 400;">{{ vm.hostname }}</div>
                             {% endif %}
                         </td>
-                        <td>{{ vm.ip or vm.hostname or 'N/A' }}</td>
+                        <td style="font-family: 'Courier New', monospace; font-size: 10px; font-weight: 400;">
+                            {{ vm.ip or vm.hostname or 'N/A' }}
+                        </td>
                         <td class="text-center">
                             {% set cpu_class = 'metric-high' if vm.cpu_load > 80 else 'metric-medium' if vm.cpu_load > 60 else 'metric-normal' %}
                             <span class="metric-value {{ cpu_class }}">{{ vm.cpu_load|round(1) }}%</span>
@@ -931,51 +1006,29 @@ class EnhancedReportGenerator:
                         </td>
                         <td class="text-center">
                             {% set health_class = 'health-excellent' if vm.health_score >= 90 else 'health-good' if vm.health_score >= 70 else 'health-poor' %}
-                            <span class="health-indicator {{ health_class }}"></span>{{ vm.health_score or 0 }}
+                            <span class="health-indicator {{ health_class }}"></span>
+                            <span style="font-weight: 500; font-size: 10px; color: #2c3e50;">{{ vm.health_score or 0 }}</span>
                         </td>
                         <td class="text-center">
                             {% if vm.is_online %}
-                                <span class="status-online">ONLINE</span>
+                                <span class="status-online">● ONLINE</span>
                             {% else %}
-                                <span class="status-offline">OFFLINE</span>
+                                <span class="status-offline">● OFFLINE</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            
-            <!-- Performance Analysis -->
-            <h2 class="section-title">📈 Performance Analysis</h2>
-            
-            {% if summary.performance %}
-            <div class="performance-grid">
-                <div class="performance-card">
-                    <h4 style="color: #27ae60;">CPU Analysis</h4>
-                    <table style="width: 100%; font-size: 10px;">
-                        <tr><td>Peak Usage:</td><td class="text-right font-bold">{{ summary.performance.peak_cpu|round(1) }}%</td></tr>
-                        <tr><td>Average:</td><td class="text-right">{{ summary.performance.avg_cpu|round(1) }}%</td></tr>
-                        <tr><td>High Usage VMs:</td><td class="text-right" style="color: #e74c3c;">{{ (vm_data|selectattr('cpu_load', '>', 80)|list|length) }}</td></tr>
-                    </table>
-                </div>
-                <div class="performance-card">
-                    <h4 style="color: #e74c3c;">Memory Analysis</h4>
-                    <table style="width: 100%; font-size: 10px;">
-                        <tr><td>Peak Usage:</td><td class="text-right font-bold">{{ summary.performance.peak_memory|round(1) }}%</td></tr>
-                        <tr><td>Average:</td><td class="text-right">{{ summary.performance.avg_memory|round(1) }}%</td></tr>
-                        <tr><td>High Usage VMs:</td><td class="text-right" style="color: #e74c3c;">{{ (vm_data|selectattr('memory_used', '>', 85)|list|length) }}</td></tr>
-                    </table>
-                </div>
-                <div class="performance-card">
-                    <h4 style="color: #9b59b6;">Storage Analysis</h4>
-                    <table style="width: 100%; font-size: 10px;">
-                        <tr><td>Peak Usage:</td><td class="text-right font-bold">{{ summary.performance.peak_disk|round(1) }}%</td></tr>
-                        <tr><td>Average:</td><td class="text-right">{{ summary.performance.avg_disk|round(1) }}%</td></tr>
-                        <tr><td>Space Warnings:</td><td class="text-right" style="color: #f39c12;">{{ (vm_data|selectattr('disk_used', '>', 85)|list|length) }}</td></tr>
-                    </table>
-                </div>
+
+            {% if vm_data|length == 0 %}
+            <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 12px; margin: 20px 0;">
+                <h3 style="color: #6c757d; margin-bottom: 10px;">No VM Data Available</h3>
+                <p style="color: #adb5bd;">No virtual machine data was collected during this report generation.</p>
             </div>
             {% endif %}
+
+            <!-- Removed Performance Analysis section to avoid duplication with Performance Overview in summary -->
             
             <!-- Recommendations -->
             <div class="recommendations">
@@ -1030,11 +1083,11 @@ class EnhancedReportGenerator:
             if chart_path.exists():
                 with open(chart_path, 'rb') as f:
                     chart_data = base64.b64encode(f.read()).decode()
-                return f'<img src="data:image/png;base64,{chart_data}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Chart">'
+                return '<img src="data:image/png;base64,{}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Chart">'.format(chart_data)
             else:
                 return '<div style="background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">📊 Chart not available</div>'
         except Exception as e:
-            logger.warning(f"Could not embed chart {chart_path}: {e}")
+            logger.warning("Could not embed chart {}: {}".format(chart_path, e))
             return '<div style="background: #fff3cd; padding: 20px; text-align: center; border-radius: 8px;">⚠️ Chart loading failed</div>'
     
     def generate_comprehensive_report(
@@ -1049,11 +1102,11 @@ class EnhancedReportGenerator:
         try:
             if output_filename is None:
                 today_str = datetime.now().strftime("%Y-%m-%d")
-                output_filename = f"vm_infrastructure_report_{today_str}.pdf"
+                output_filename = "vm_infrastructure_report_{}.pdf".format(today_str)
             
             output_path = self.output_dir / output_filename
             
-            safe_log_info(f"🎨 Generating comprehensive PDF report: {output_filename}")
+            safe_log_info("🎨 Generating comprehensive PDF report: {}".format(output_filename))
             
             # Prepare template data
             template_data = {
@@ -1108,10 +1161,10 @@ class EnhancedReportGenerator:
             if output_path.exists():
                 file_size = output_path.stat().st_size
                 safe_log_info(f"✅ PDF report generated successfully")
-                safe_log_info(f"   Output: {output_path}")
-                safe_log_info(f"   Size: {file_size:,} bytes")
-                safe_log_info(f"   VMs: {len(vm_data)} systems")
-                safe_log_info(f"   Status: {summary.get('system_status', 'unknown').title()}")
+                safe_log_info("   Output: {}".format(output_path))
+                safe_log_info("   Size: {:,} bytes".format(file_size))
+                safe_log_info("   VMs: {} systems".format(len(vm_data)))
+                safe_log_info("   Status: {}".format(summary.get('system_status', 'unknown').title()))
                 
                 return str(output_path)
             else:
@@ -1119,8 +1172,8 @@ class EnhancedReportGenerator:
                 return None
                 
         except Exception as e:
-            safe_log_error(f"❌ PDF generation failed: {e}")
-            logger.debug(f"Error details: {e.__class__.__name__}: {e}")
+            safe_log_error("❌ PDF generation failed: {}".format(e))
+            logger.debug("Error details: {}: {e}".format(e.__class__.__name__))
             return None
 
 # Backward compatibility function
@@ -1163,14 +1216,14 @@ def main():
         
         if report_path:
             safe_log_info("✅ Report generation completed successfully!")
-            safe_log_info(f"📁 Report saved: {report_path}")
+            safe_log_info("📁 Report saved: {}".format(report_path))
             return vm_data, summary
         else:
             safe_log_error("❌ Report generation failed")
             return None, None
             
     except Exception as e:
-        safe_log_error(f"❌ Error in main: {e}")
+        safe_log_error("❌ Error in main: {}".format(e))
         return None, None
 
 if __name__ == "__main__":

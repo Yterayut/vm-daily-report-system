@@ -106,34 +106,33 @@ Before updating the log, ensure:
 
 ### Example 1: Bug Fix
 ```markdown
-### 2025-06-09 - Bug Fix: LINE Alert Not Sending
-- **Problem**: LINE notifications were failing silently
-- **Root Cause**: Incorrect LINE Bot SDK version compatibility
-- **Solution**: Updated to LINE Bot SDK v2 with proper error handling
-- **Files Modified**: enhanced_alert_system.py, requirements.txt
-- **Testing**: Sent test alerts successfully to LINE groups
-- **Impact**: Restored real-time mobile notifications for critical alerts
+### 2025-06-13 - Bug Fix: Email Recipient Count Fix - Cron vs Manual Discrepancy
+- **Problem**: Manual run showed 2 recipients but cron job showed only 1
+- **Root Cause**: daily_report.py only counted TO emails instead of total recipients (TO+CC+BCC)
+- **Solution**: Modified recipient counting to sum all email types for accurate display
+- **Files Modified**: daily_report.py
+- **Testing**: Both manual and cron execution now correctly show 2 recipients
+- **Impact**: Consistent email delivery reporting across all execution methods
 ```
 
 ### Example 2: New Feature
 ```markdown
-### 2025-06-09 - Feature: Storage Trend Analysis
-- **Purpose**: Added 7-day storage usage trend charts
-- **Implementation**: New function in fetch_zabbix_data.py for historical data
-- **Files Added**: storage_trends.py
-- **Files Modified**: generate_report.py, daily_report.py
-- **Configuration**: Added STORAGE_HISTORY_DAYS=7 to .env
-- **Usage**: Automatic inclusion in daily PDF reports
+### 2025-06-13 - Feature: Enhanced Email Recipient Counting
+- **Purpose**: Provide accurate recipient count including TO, CC, and BCC emails
+- **Implementation**: Modified daily_report.py to sum all email recipient types
+- **Files Modified**: daily_report.py
+- **Configuration**: Works with existing TO_EMAILS, CC_EMAILS, BCC_EMAILS settings
+- **Usage**: Automatic display in system logs and status messages
 ```
 
 ### Example 3: System Improvement
 ```markdown
-### 2025-06-09 - Improvement: Enhanced Error Handling
-- **Enhancement**: Added comprehensive try-catch blocks and logging
-- **Reason**: Prevent system crashes from network timeouts
-- **Changes**: Wrapped all external API calls with error handling
-- **Files Modified**: fetch_zabbix_data.py, enhanced_alert_system.py
-- **Performance Impact**: Improved system stability by 95%
+### 2025-06-13 - Improvement: Cron vs Manual Execution Consistency
+- **Enhancement**: Ensured consistent email recipient counting across execution methods
+- **Reason**: Prevent confusion when comparing manual vs automated runs
+- **Changes**: Updated recipient counting logic to include all email types (TO+CC+BCC)
+- **Files Modified**: daily_report.py
+- **Performance Impact**: Improved reporting consistency and reliability
 - **Compatibility**: No breaking changes, backward compatible
 ```
 
