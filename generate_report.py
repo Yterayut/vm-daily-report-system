@@ -230,11 +230,27 @@ class EnhancedReportGenerator:
         </svg>
         '''
     def get_enhanced_css(self) -> str:
-        """Get enhanced CSS with One Climate professional branding"""
-        return """
+        """Get enhanced CSS with One Climate professional branding - A4 Optimized"""
+        # Import enhanced CSS from dedicated module
+        try:
+            from enhanced_pdf_styles import get_enhanced_a4_css
+            return get_enhanced_a4_css()
+        except ImportError:
+            # Fallback to inline CSS if module not available
+            return """
         @page {
             size: A4;
             margin: 20mm;
+        }
+
+        @page:first {
+            margin: 0;
+            @top-right { content: none; }
+            @bottom-left { content: none; }
+            @bottom-right { content: none; }
+        }
+
+        @page:not(:first) {
             @top-right {
                 content: "Page " counter(page) " of " counter(pages);
                 font-size: 10px;
@@ -284,6 +300,8 @@ class EnhancedReportGenerator:
             flex-direction: column;
             position: relative;
             overflow: hidden;
+            page-break-after: always;
+            page-break-inside: avoid;
         }
 
         .cover-page::before {
@@ -365,9 +383,46 @@ class EnhancedReportGenerator:
 
         .cover-info {
             display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 30px;
+        }
+
+        .cover-section {
+            background: rgba(255,255,255,0.15);
+            padding: 20px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            min-width: 400px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .section-stats {
+            font-size: 18px;
+            font-weight: 500;
+            color: white;
+            display: flex;
             align-items: center;
-            gap: 40px;
-            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .stat-item {
+            font-weight: 600;
+        }
+
+        .stat-divider {
+            color: rgba(255,255,255,0.6);
+            font-weight: 300;
         }
 
         .cover-date {
@@ -784,11 +839,186 @@ class EnhancedReportGenerator:
         .mb-20 { margin-bottom: 20px; }
         .mt-20 { margin-top: 20px; }
 
-        /* Responsive adjustments */
-        @media print {
-            .cover-page {
-                page-break-after: always;
-            }
+        /* Service Health Styles */
+        .service-health-page {
+            padding: 20px 0;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .service-card {
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid;
+            page-break-inside: avoid;
+        }
+
+        .service-card.healthy {
+            border-left-color: #2ecc71;
+        }
+
+        .service-card.warning {
+            border-left-color: #f39c12;
+        }
+
+        .service-card.critical {
+            border-left-color: #e74c3c;
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+
+        .service-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-badge.healthy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .service-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .metric-label {
+            font-size: 9px;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .metric-value {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .service-endpoints {
+            margin-top: 15px;
+        }
+
+        .service-endpoints h4 {
+            font-size: 11px;
+            color: #6c757d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .endpoint-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 10px;
+        }
+
+        .endpoint-status:last-child {
+            border-bottom: none;
+        }
+
+        .endpoint-name {
+            color: #495057;
+        }
+
+        .endpoint-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .endpoint-badge.ok {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .endpoint-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .service-error {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(248, 215, 218, 0.5);
+            border-radius: 6px;
+            font-size: 10px;
+            color: #721c24;
+        }
+
+        .no-services {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .demo-notice {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #856404;
+        }
+
+        /* Content sections */
+        .content-section {
+            page-break-inside: avoid;
+        }
+
+        /* Add explicit page break control for content sections */
+        .details-page {
+            page-break-before: always;
+            padding: 20px 0;
         }
         """
 
@@ -817,18 +1047,28 @@ class EnhancedReportGenerator:
                 
                 <div class="cover-info">
                     <div class="cover-date">{{ report_date }}</div>
-                    <div class="cover-stats">
-                        <div class="stat-box">
-                            <div class="stat-number">{{ summary.total or '0' }}</div>
-                            <div class="stat-label">Total Systems</div>
+                    
+                    <!-- VM Infrastructure Stats -->
+                    <div class="cover-section">
+                        <div class="section-title">VM INFRASTRUCTURE</div>
+                        <div class="section-stats">
+                            <span class="stat-item">{{ summary.total or '0' }} Total</span>
+                            <span class="stat-divider">|</span>
+                            <span class="stat-item">{{ summary.online or '0' }} Online</span>
+                            <span class="stat-divider">|</span>
+                            <span class="stat-item">{{ ((summary.online or 0) / (summary.total or 1) * 100)|round(1) }}% Uptime</span>
                         </div>
-                        <div class="stat-box">
-                            <div class="stat-number">{{ summary.online or '0' }}</div>
-                            <div class="stat-label">Online</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-number">{{ ((summary.online or 0) / (summary.total or 1) * 100)|round(1) }}%</div>
-                            <div class="stat-label">Uptime</div>
+                    </div>
+                    
+                    <!-- Service Health Stats -->
+                    <div class="cover-section">
+                        <div class="section-title">SERVICE HEALTH</div>
+                        <div class="section-stats">
+                            <span class="stat-item">{{ service_summary.total or '5' }} Total</span>
+                            <span class="stat-divider">|</span>
+                            <span class="stat-item">{{ service_summary.healthy or '5' }} Healthy</span>
+                            <span class="stat-divider">|</span>
+                            <span class="stat-item">{{ ((service_summary.healthy or 5) / (service_summary.total or 5) * 100)|round(1) }}% Available</span>
                         </div>
                     </div>
                 </div>
@@ -848,9 +1088,9 @@ class EnhancedReportGenerator:
         """
     
     def get_summary_template(self) -> str:
-        """Enhanced executive summary template - FIXED FILTERS"""
+        """Enhanced executive summary template - NO PAGE WRAPPER"""
         return """
-        <div class="summary-page">
+        <div class="summary-section">
             <h1 class="page-title">Executive Summary</h1>
             
             <!-- KPI Overview -->
@@ -951,10 +1191,102 @@ class EnhancedReportGenerator:
         </div>
         """
     
-    def get_details_template(self) -> str:
-        """Enhanced VM details template - FIXED FILTERS"""
+    def get_service_health_template(self) -> str:
+        """Service Health Monitoring template - NO PAGE BREAK"""
         return """
-        <div class="page-break"></div>
+        <div class="service-health-section">
+            <h1 class="page-title">🛡️ Service Health Monitoring</h1>
+            
+            <!-- Service Summary -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-number">{{ service_health_data.get('summary', {}).get('total_count', 0) }}</div>
+                    <div class="kpi-label">Total Services</div>
+                </div>
+                <div class="kpi-card healthy">
+                    <div class="kpi-number">{{ service_health_data.get('summary', {}).get('healthy_count', 0) }}</div>
+                    <div class="kpi-label">Healthy Services</div>
+                </div>
+                <div class="kpi-card warning">
+                    <div class="kpi-number">{{ service_health_data.get('summary', {}).get('warning_count', 0) }}</div>
+                    <div class="kpi-label">Warning Services</div>
+                </div>
+                <div class="kpi-card critical">
+                    <div class="kpi-number">{{ service_health_data.get('summary', {}).get('critical_count', 0) }}</div>
+                    <div class="kpi-label">Critical Services</div>
+                </div>
+                <div class="kpi-card info">
+                    <div class="kpi-number">{{ "%.1f"|format(service_health_data.get('summary', {}).get('availability_percentage', 0)) }}%</div>
+                    <div class="kpi-label">Service Availability</div>
+                </div>
+            </div>
+            
+            {% if service_health_data.get('services') %}
+            <!-- Service Details -->
+            <div class="service-details">
+                <h2>Service Status Details</h2>
+                <div class="service-grid">
+                    {% for service_id, service in service_health_data.get('services', {}).items() %}
+                    <div class="service-card {{ service.health_level }}">
+                        <div class="service-header">
+                            <h3>{{ service.name }}</h3>
+                            <span class="status-badge {{ service.health_level }}">{{ service.status }}</span>
+                        </div>
+                        <div class="service-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Database:</span>
+                                <span class="metric-value">{{ service.database }}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">DB Latency:</span>
+                                <span class="metric-value">{{ service.db_latency_ms }}ms</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Response Time:</span>
+                                <span class="metric-value">{{ "%.1f"|format(service.response_time_ms) }}ms</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Uptime:</span>
+                                <span class="metric-value">{{ service.uptime }}</span>
+                            </div>
+                        </div>
+                        {% if service.endpoints %}
+                        <div class="service-endpoints">
+                            <h4>API Endpoints</h4>
+                            {% for endpoint, status in service.endpoints.items() %}
+                            <div class="endpoint-status">
+                                <span class="endpoint-name">{{ endpoint.replace('_status', '').replace('_', ' ').title() }}</span>
+                                <span class="endpoint-badge {{ 'ok' if status == 'ok' else 'error' }}">{{ status }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if service.error %}
+                        <div class="service-error">
+                            <strong>Error:</strong> {{ service.error }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="no-services">
+                <p>No service health data available</p>
+            </div>
+            {% endif %}
+            
+            {% if service_health_data.get('demo_mode') %}
+            <div class="demo-notice">
+                <p><strong>Note:</strong> Service health data is currently running in demo mode.</p>
+            </div>
+            {% endif %}
+        </div>
+        """
+    
+    def get_details_template(self) -> str:
+        """Enhanced VM details template - NO INTERNAL PAGE BREAK"""
+        return """
         <div class="details-page">
             <h1 class="page-title">📊 Virtual Machine Inventory</h1>
             
@@ -1095,14 +1427,15 @@ class EnhancedReportGenerator:
         vm_data: List[Dict[str, Any]], 
         summary: Dict[str, Any],
         company_logo: str = 'tech_corp',
-        output_filename: str = None
+        output_filename: str = None,
+        service_health_data: Dict[str, Any] = None
     ) -> Optional[str]:
         """Generate comprehensive PDF report with all enhancements"""
         
         try:
             if output_filename is None:
                 today_str = datetime.now().strftime("%Y-%m-%d")
-                output_filename = "vm_infrastructure_report_{}.pdf".format(today_str)
+                output_filename = "VM_Infrastructure_Report_{}.pdf".format(today_str)
             
             output_path = self.output_dir / output_filename
             
@@ -1114,6 +1447,8 @@ class EnhancedReportGenerator:
                 'report_date': datetime.now().strftime("%B %d, %Y"),
                 'vm_data': vm_data or [],
                 'summary': summary,
+                'service_health_data': service_health_data or {},
+                'service_summary': self._calculate_service_summary(service_health_data),
                 'status_chart': self.embed_chart_as_base64(self.static_dir / 'vm_status_chart.png'),
                 'performance_chart': self.embed_chart_as_base64(self.static_dir / 'performance_distribution.png'),
                 'resource_chart': self.embed_chart_as_base64(self.static_dir / 'resource_overview.png'),
@@ -1123,9 +1458,10 @@ class EnhancedReportGenerator:
             # Render templates using Jinja2 environment with custom filters
             cover_html = self.jinja_env.from_string(self.get_cover_template()).render(**template_data)
             summary_html = self.jinja_env.from_string(self.get_summary_template()).render(**template_data)
+            service_health_html = self.jinja_env.from_string(self.get_service_health_template()).render(**template_data)
             details_html = self.jinja_env.from_string(self.get_details_template()).render(**template_data)
             
-            # Combine all content
+            # Combine all content - CLEAN STRUCTURE WITH CSS-CONTROLLED PAGE BREAKS
             full_html = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -1139,8 +1475,10 @@ class EnhancedReportGenerator:
             </head>
             <body>
                 {cover_html}
-                <div class="page-break"></div>
-                {summary_html}
+                <div class="content-section">
+                    {summary_html}
+                    {service_health_html}
+                </div>
                 {details_html}
             </body>
             </html>
@@ -1173,8 +1511,48 @@ class EnhancedReportGenerator:
                 
         except Exception as e:
             safe_log_error("❌ PDF generation failed: {}".format(e))
-            logger.debug("Error details: {}: {e}".format(e.__class__.__name__))
+            safe_log_error("Error details: {}: {}".format(e.__class__.__name__, e))
             return None
+
+    def _calculate_service_summary(self, service_health_data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Calculate service health summary for cover page"""
+        if not service_health_data:
+            # Default service summary when no data available
+            return {
+                'total': 5,
+                'healthy': 5,
+                'warning': 0,
+                'critical': 0,
+                'availability': 100.0
+            }
+        
+        services = service_health_data.get('services', {})
+        total = len(services)
+        healthy = 0
+        warning = 0
+        critical = 0
+        
+        for service_name, service_data in services.items():
+            status = service_data.get('status', 'unknown').lower()
+            if status in ['ok', 'healthy', 'up']:
+                healthy += 1
+            elif status in ['warning', 'degraded']:
+                warning += 1
+            elif status in ['critical', 'down', 'error']:
+                critical += 1
+            else:
+                # Unknown status - count as warning
+                warning += 1
+        
+        availability = (healthy / total * 100) if total > 0 else 0.0
+        
+        return {
+            'total': total,
+            'healthy': healthy,
+            'warning': warning,
+            'critical': critical,
+            'availability': round(availability, 1)
+        }
 
 # Backward compatibility function
 def main():

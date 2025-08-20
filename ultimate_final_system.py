@@ -537,33 +537,6 @@ def create_beautiful_email_html(summary, pdf_filename):
                     font-size: 13px; 
                 }}
             }}
-            
-            /* Dark mode compatibility */
-            @media (prefers-color-scheme: dark) {{
-                .email-container {{ 
-                    background: #1a1a1a; 
-                    color: #e0e0e0;
-                }}
-                .section {{ 
-                    border-bottom-color: #333; 
-                }}
-                .metric-card {{ 
-                    background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-                    border-color: #333;
-                }}
-                .performance-card {{ 
-                    background: #2a2a2a; 
-                }}
-                .feature-list li {{ 
-                    background: rgba(255,255,255,0.1); 
-                }}
-                .footer {{ 
-                    background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%); 
-                }}
-                .footer-item {{ 
-                    background: #333; 
-                }}
-            }}
         </style>
     </head>
     <body>

@@ -1,0 +1,506 @@
+/* Service Health Monitoring Styles */
+/* Part of VM Daily Report Dashboard v2.1 */
+
+/* Service Grid Layout */
+.service-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+/* Service Card Base Styles */
+.service-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.service-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.service-card:hover::before {
+    transform: translateX(100%);
+}
+
+/* Service Card Status Colors */
+.service-card.status-healthy { 
+    border-left-color: var(--success-color); 
+}
+
+.service-card.status-warning { 
+    border-left-color: var(--warning-color); 
+}
+
+.service-card.status-critical, 
+.service-card.status-error { 
+    border-left-color: var(--error-color); 
+}
+
+.service-card.status-unknown { 
+    border-left-color: #666; 
+}
+
+/* Service Header */
+.service-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.service-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text-light);
+    flex: 1;
+    margin-right: 10px;
+}
+
+/* Service Status Badge */
+.service-status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.service-status-badge.status-healthy {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    border: 1px solid #4CAF50;
+}
+
+.service-status-badge.status-warning {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FF9800;
+    border: 1px solid #FF9800;
+}
+
+.service-status-badge.status-critical, 
+.service-status-badge.status-error {
+    background: rgba(244, 67, 54, 0.2);
+    color: #F44336;
+    border: 1px solid #F44336;
+}
+
+.service-status-badge.status-unknown {
+    background: rgba(158, 158, 158, 0.2);
+    color: #9E9E9E;
+    border: 1px solid #9E9E9E;
+}
+
+/* Service Metrics Grid */
+.service-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 15px 0;
+}
+
+.service-metric {
+    text-align: center;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    transition: background 0.3s ease;
+}
+
+.service-metric:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.service-metric-value {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-light);
+    margin-bottom: 4px;
+}
+
+.service-metric-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Service Endpoints */
+.service-endpoints {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.endpoints-header {
+    font-size: 12px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.service-endpoint {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 13px;
+}
+
+.service-endpoint:last-child { 
+    border-bottom: none; 
+}
+
+.endpoint-name { 
+    color: rgba(255, 255, 255, 0.8);
+    flex: 1;
+}
+
+.endpoint-status {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.endpoint-status.status-ok {
+    background: rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+.endpoint-status.status-error {
+    background: rgba(244, 67, 54, 0.3);
+    color: #F44336;
+}
+
+/* Service Error Info */
+.service-error-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(244, 67, 54, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid #F44336;
+}
+
+.error-header {
+    font-size: 12px;
+    font-weight: bold;
+    color: #F44336;
+    margin-bottom: 5px;
+}
+
+.error-message {
+    font-size: 12px;
+    color: rgba(244, 67, 54, 0.9);
+    line-height: 1.4;
+}
+
+/* Service Footer */
+.service-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.service-type {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.service-last-check {
+    font-style: italic;
+}
+
+/* Service Summary Stats */
+.service-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.service-stat-card {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    border-left: 4px solid var(--info-color);
+    transition: all 0.3s ease;
+}
+
+.service-stat-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.service-stat-card.success {
+    border-left-color: var(--success-color);
+}
+
+.service-stat-card.warning {
+    border-left-color: var(--warning-color);
+}
+
+.service-stat-card.error {
+    border-left-color: var(--error-color);
+}
+
+.service-stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--text-light);
+}
+
+.service-stat-label {
+    font-size: 12px;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Service Alerts */
+.service-alerts-container {
+    max-height: 400px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.service-alerts-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.service-alerts-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.service-alerts-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.service-alert {
+    background: rgba(255, 255, 255, 0.1);
+    border-left: 4px solid;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.service-alert:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(3px);
+}
+
+.service-alert.alert-critical { 
+    border-left-color: var(--error-color); 
+}
+
+.service-alert.alert-warning { 
+    border-left-color: var(--warning-color); 
+}
+
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.alert-level {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.alert-level.critical {
+    background: rgba(244, 67, 54, 0.3);
+    color: #F44336;
+}
+
+.alert-level.warning {
+    background: rgba(255, 152, 0, 0.3);
+    color: #FF9800;
+}
+
+.alert-message {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.4;
+    margin-bottom: 5px;
+}
+
+.alert-details {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+    margin-bottom: 5px;
+}
+
+.alert-timestamp {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: right;
+}
+
+/* Service Loading States */
+.service-loading {
+    text-align: center;
+    padding: 40px;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.service-loading p {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+/* Service Error States */
+.service-error {
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: #F44336;
+}
+
+.service-error h3 {
+    margin-bottom: 10px;
+    color: #F44336;
+}
+
+.service-error p {
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+/* Animations */
+@keyframes serviceCardPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.1); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+.service-card.status-critical {
+    animation: serviceCardPulse 2s infinite;
+}
+
+@keyframes serviceSpinner {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.service-loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: serviceSpinner 1s ease-in-out infinite;
+    margin-right: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .service-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .service-metrics {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .service-summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .service-card {
+        padding: 15px;
+    }
+    
+    .service-name {
+        font-size: 14px;
+    }
+    
+    .service-status-badge {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .service-summary-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .service-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .service-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+
+/* Dark theme specific adjustments */
+@media (prefers-color-scheme: dark) {
+    .service-card {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .service-metric {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .service-loading {
+        background: rgba(255, 255, 255, 0.03);
+    }
+}

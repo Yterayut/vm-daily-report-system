@@ -332,4 +332,9 @@ def test_vm_state_tracker():
 
 
 if __name__ == "__main__":
-    test_vm_state_tracker()
+    # Only run test if explicitly requested
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        test_vm_state_tracker()
+    else:
+        print("VM State Tracker module loaded. Use --test to run tests.")

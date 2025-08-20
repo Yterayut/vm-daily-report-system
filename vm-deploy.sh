@@ -302,6 +302,14 @@ post_deployment_ssh() {
         
         echo 'Post-deployment completed'
     "
+    
+    # Auto-sync checkpoints after deployment
+    log "Running checkpoint auto-sync after deployment..."
+    if [ -f "$LOCAL_PROJECT_DIR/checkpoint_sync.sh" ]; then
+        "$LOCAL_PROJECT_DIR/checkpoint_sync.sh" auto
+    else
+        warn "Checkpoint sync script not found, skipping auto-sync"
+    fi
 }
 
 # Show system status

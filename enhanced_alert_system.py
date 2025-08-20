@@ -97,6 +97,7 @@ class AlertConfig:
     # LINE settings
     line_channel_access_token: str = ""
     line_user_id: str = ""
+    line_notifications_enabled: bool = False  # Temporarily disabled
     
     # Alert thresholds
     cpu_warning_threshold: float = 70.0
@@ -155,6 +156,7 @@ class EnhancedAlertSystem:
             bcc_emails=bcc_emails,
             line_channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN', ''),
             line_user_id=os.getenv('LINE_USER_ID', ''),
+            line_notifications_enabled=os.getenv('LINE_NOTIFICATIONS_ENABLED', 'false').lower() == 'true',
             cpu_warning_threshold=float(os.getenv('CPU_WARNING_THRESHOLD', '70')),
             cpu_critical_threshold=float(os.getenv('CPU_CRITICAL_THRESHOLD', '85')),
             memory_warning_threshold=float(os.getenv('MEMORY_WARNING_THRESHOLD', '75')),
@@ -357,6 +359,11 @@ class EnhancedAlertSystem:
     
     def send_line_alert(self, message: str, alert_level: AlertLevel = AlertLevel.INFO) -> bool:
         """Send alert to LINE OA with enhanced formatting"""
+        # Check if LINE notifications are disabled
+        if not self.config.line_notifications_enabled:
+            log_info("📱 LINE notifications disabled - skipping LINE alert")
+            return True  # Return True to indicate successful "skipping"
+            
         if not self.line_bot_api or not self.config.line_user_id:
             log_warning("⚠️ LINE Bot not configured")
             return False

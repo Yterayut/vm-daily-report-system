@@ -161,6 +161,28 @@ setup_dev.sh
 setup_logrotate_project_vm.sh
 start_dashboard.sh
 watch_deploy.sh
+
+# Additional security - Checkpoint and archive files
+checkpoints/
+archive/
+*.pid
+dashboard.pid
+
+# Backup and temporary files
+*.bak
+*.bak2
+*_corrected.py
+*_fixed.py
+*_v*_update.py
+*emergency*
+mobile_emergency_fix.html
+
+# Cron and monitoring files
+new_crontab.txt
+enhanced_cron_monitoring.txt
+
+# Development and testing files
+*_test_report.md
 NEW_CHAT_COMPLETE_GUIDE.md
 NEW_CHAT_MESSAGE.txt
 NEW_CHAT_QUICK_REFERENCE.md

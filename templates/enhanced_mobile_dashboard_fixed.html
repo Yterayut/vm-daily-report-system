@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🖥️ VM Infrastructure Dashboard v2.1</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #4CAF50;
+            --warning-color: #FF9800;
+            --error-color: #F44336;
+            --info-color: #2196F3;
+            --text-light: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            color: var(--text-light);
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: var(--info-color);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .feature-highlight {
+            background: linear-gradient(45deg, var(--info-color), var(--primary-color));
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .feature-highlight h4 {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .feature-highlight p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 8px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .tab.active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .status-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .status-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .section h3 {
+            margin-bottom: 25px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .metrics {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .metric:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+        
+        .metric-name {
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+        }
+        
+        .metric-bar-container {
+            flex: 1;
+            margin: 0 20px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .metric-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.8s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            min-width: 60px;
+            text-align: right;
+            color: white;
+            font-size: 16px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            border-left: 5px solid var(--info-color);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        
+        .stat-card.warning { border-left-color: var(--warning-color); }
+        .stat-card.success { border-left-color: var(--success-color); }
+        .stat-card.error { border-left-color: var(--error-color); }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: white;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin: 25px 0;
+        }
+        
+        .service-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .service-card.status-healthy { border-left-color: var(--success-color); }
+        .service-card.status-warning { border-left-color: var(--warning-color); }
+        .service-card.status-critical, .service-card.status-error { border-left-color: var(--error-color); }
+        
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .service-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-light);
+        }
+        
+        .service-status-badge {
+            padding: 6px 15px;
+            border-radius: 25px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .service-status-badge.status-healthy {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+        
+        .service-status-badge.status-warning {
+            background: rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+            border: 1px solid #FF9800;
+        }
+        
+        .service-status-badge.status-critical, .service-status-badge.status-error {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+            border: 1px solid #F44336;
+        }
+        
+        .service-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .service-metric {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .service-metric:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .service-metric-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+        
+        .service-metric-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 18px;
+            color: white;
+        }
+        
+        .loading .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 25px;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+        
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 30px;
+            padding: 12px 25px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        
+        .data-source-indicator {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .data-source-zabbix {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .data-source-demo {
+            background: var(--warning-color);
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            body { padding: 15px; }
+            .status-cards { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            .header h1 { font-size: 22px; }
+            .tabs { flex-direction: column; gap: 8px; }
+            .service-grid { grid-template-columns: 1fr; gap: 20px; }
+            .service-metrics { grid-template-columns: 1fr; gap: 10px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .status-cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ VM Infrastructure Dashboard
+            <span class="version-badge">v2.1</span>
+        </h1>
+        <p>Real-time monitoring system with service health
+            <span class="data-source-indicator" id="dataSourceIndicator">Loading...</span>
+        </p>
+    </div>
+
+    <div class="feature-highlight">
+        <h4>🚀 New in v2.1</h4>
+        <p>🛡️ Service Health Monitoring • 📈 Historical trends • 🗜️ 70% faster responses • ⚡ Smart caching</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('overview')">📊 Overview</button>
+        <button class="tab" onclick="showTab('services')">🛡️ Services</button>
+        <button class="tab" onclick="showTab('trends')">📈 Trends</button>
+        <button class="tab" onclick="showTab('alerts')">🚨 Alerts</button>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        🔄 Loading enhanced dashboard...
+    </div> Latency</div>' +
+                    '</div>' +
+                    '<div class="service-metric">' +
+                        '<div class="service-metric-value">' + (data.response_time_ms || 0) + 'ms</div>' +
+                        '<div class="service-metric-label">Response Time</div>' +
+                    '</div>' +
+                    '<div class="service-metric">' +
+                        '<div class="service-metric-value">' + (data.uptime || 'N/A') + '</div>' +
+                        '<div class="service-metric-label">Uptime</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12px; opacity: 0.8;">' +
+                    'Last checked: ' + (data.last_checked || 'Never') +
+                '</div>';
+            
+            return card;
+        }
+
+        // Show error message
+        function showError(message) {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.innerHTML = 
+                    '<div style="color: #F44336; font-size: 18px;">' +
+                        '❌ ' + message +
+                        '<br><br>' +
+                        '<button class="refresh-btn" onclick="location.reload()">🔄 Retry</button>' +
+                    '</div>';
+            }
+        }
+
+        // Show service health error
+        function showServiceHealthError(message) {
+            const grid = document.getElementById('serviceHealthGrid');
+            if (grid) {
+                grid.innerHTML = 
+                    '<div class="loading">' +
+                        '<div style="color: #F44336;">❌ ' + message + '</div>' +
+                        '<br>' +
+                        '<button class="refresh-btn" onclick="loadServiceHealthData()">🔄 Retry</button>' +
+                    '</div>';
+            }
+        }
+
+        // Refresh all data
+        function refreshAllData() {
+            console.log('🔄 Refreshing all data...');
+            
+            dashboardData = null;
+            serviceHealthData = null;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
+            
+            loadDashboardData();
+            
+            if (currentTab === 'services') {
+                loadServiceHealthData();
+            }
+        }
+
+        // Auto refresh functionality
+        function startAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            refreshInterval = setInterval(function() {
+                console.log('🔄 Auto-refreshing dashboard...');
+                loadDashboardData();
+                
+                if (currentTab === 'services' && serviceHealthData) {
+                    loadServiceHealthData();
+                }
+            }, 30000);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Initializing VM Infrastructure Dashboard v2.1...');
+            
+            loadDashboardData();
+            startAutoRefresh();
+            
+            console.log('✅ Dashboard initialization complete!');
+        });
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+                refreshAllData();
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopAutoRefresh();
+        });
+    </script>
+</body>
+</html>
