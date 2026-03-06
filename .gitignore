@@ -81,8 +81,10 @@ test_*.json
 !docs/PRODUCTION_RUNBOOK.md
 !docs/PRODUCTION_LOCKDOWN_PHASE1_5_SPEC_v1_0.md
 !docs/BRANCH_PROTECTION_POLICY.md
+!docs/PHASE8_PROD_OPS_SPEC_v1_0.md
 !scripts/prod_run_daily_report.sh
 !scripts/production_lockdown_preflight.sh
+!scripts/test_gate_failure_alert.sh
 
 # ⚠️ SECURITY - Specific files that may contain sensitive data
 debug_*
@@ -97,6 +99,7 @@ line_*
 *line*test*
 *password*test*
 *token*test*
+!scripts/test_gate_failure_alert.sh
 
 # Python
 __pycache__/
