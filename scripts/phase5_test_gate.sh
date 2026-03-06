@@ -125,6 +125,9 @@ finalize() {
   local artifact
   artifact="$(write_artifact)"
   echo "[ARTIFACT] $artifact"
+  if [[ "$OVERALL_STATUS" != "PASS" ]]; then
+    python3 ./scripts/notify_gate_failure.py || true
+  fi
 }
 trap finalize EXIT
 

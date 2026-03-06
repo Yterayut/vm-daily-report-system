@@ -1,0 +1,9 @@
+# Default owner for production critical files
+* @Yterayut
+
+# CI/Gate and runtime wrappers
+/.github/workflows/* @Yterayut
+/scripts/phase5_test_gate.sh @Yterayut
+/scripts/prod_run_daily_report.sh @Yterayut
+/scripts/production_lockdown_preflight.sh @Yterayut
+/scripts/config_contract_test.py @Yterayut
