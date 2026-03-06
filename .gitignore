@@ -1,25 +1,84 @@
-# Secrets
+# Security: secrets/credentials
 .env
-.env.*
+.env.local
+.env.production
+.env.staging
+.env.test
+.env.*.local
+.env.key
 *.pem
 *.key
 *.p12
 *.pfx
+id_rsa*
+known_hosts
 
-# Runtime/log/output
+# Keep sample environment in git
+!.env.example
+
+# Runtime artifacts
 logs/
 output/
+reports/
 *.log
+*.log.*
 *.pid
+*.gz
+*.pdf
+*.xlsx
 
 # Python
 __pycache__/
-*.pyc
-.venv/
-venv/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Checkpoints/backups
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+.directory
+*~
+
+# Backups/checkpoints
 checkpoints/
 archive/
 *.bak
 *.backup
+*.old
+*.orig
+
+# Local caches/temp
+.cache/
+tmp/
+temp/
