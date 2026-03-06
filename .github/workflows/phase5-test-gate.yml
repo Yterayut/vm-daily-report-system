@@ -10,7 +10,20 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: soft
+            credential_hardening_required: "false"
+            zabbix_preflight_required: "false"
+            allow_failure: false
+          - lane: strict
+            credential_hardening_required: "true"
+            zabbix_preflight_required: "true"
+            allow_failure: true
+    continue-on-error: ${{ matrix.allow_failure }}
 
     steps:
       - name: Checkout
@@ -65,9 +78,32 @@ jobs:
           ENABLE_STRICT_ENV_GUARD=false
           EMAIL_DRY_RUN=true
           LINE_NOTIFICATIONS_ENABLED=false
+          CREDENTIAL_HARDENING_REQUIRED=${{ matrix.credential_hardening_required }}
+          ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.zabbix_preflight_required }}
           EOF
 
-      - name: Run Phase5 Test Gate
+      - name: Run Phase5 Test Gate (${{ matrix.lane }})
         run: |
-          chmod +x scripts/secret_scan.sh scripts/phase5_test_gate.sh
+          chmod +x scripts/secret_scan.sh scripts/phase5_test_gate.sh scripts/credential_hardening_preflight.sh scripts/zabbix_auth_preflight.sh
+          CREDENTIAL_HARDENING_REQUIRED=${{ matrix.credential_hardening_required }} \
+          ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.zabbix_preflight_required }} \
           ./scripts/phase5_test_gate.sh .
+
+      - name: Show latest gate artifact
+        if: always()
+        run: |
+          latest="$(ls -1t output/test_gate_*.json 2>/dev/null | head -n 1 || true)"
+          if [[ -n "$latest" ]]; then
+            echo "Latest artifact: $latest"
+            cat "$latest"
+          else
+            echo "No gate artifact produced"
+          fi
+
+      - name: Upload gate artifacts (${{ matrix.lane }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-gate-${{ matrix.lane }}
+          path: output/test_gate_*.json
+          if-no-files-found: warn

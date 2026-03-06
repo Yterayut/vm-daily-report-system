@@ -198,6 +198,21 @@ class SecureEnvLoader:
                 elif var == 'ZABBIX_URL':
                     if not (value.startswith('http://') or value.startswith('https://')):
                         invalid_vars.append("{} - Must be valid URL".format(var))
+
+        # Cross-field validation for safer runtime behavior.
+        smtp_port_raw = os.getenv("SMTP_PORT", "").strip()
+        if smtp_port_raw:
+            try:
+                smtp_port = int(smtp_port_raw)
+                if smtp_port < 1 or smtp_port > 65535:
+                    invalid_vars.append("SMTP_PORT - Must be in range 1..65535")
+            except ValueError:
+                invalid_vars.append("SMTP_PORT - Must be an integer")
+
+        email_dry_run = os.getenv("EMAIL_DRY_RUN", "false").lower() == "true"
+        to_emails = [email.strip() for email in os.getenv("TO_EMAILS", "").split(",") if email.strip()]
+        if not email_dry_run and not to_emails:
+            invalid_vars.append("TO_EMAILS - Must not be empty when EMAIL_DRY_RUN=false")
         
         if missing_vars or invalid_vars:
             safe_log_error("❌ Configuration validation failed (profile: {})".format(profile))

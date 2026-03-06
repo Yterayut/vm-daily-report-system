@@ -33,6 +33,7 @@ Date: 2026-03-06
 ## Expected Outputs
 - `output/VM_Infrastructure_Report_<YYYY-MM-DD>.pdf`
 - `output/Service_Health_Report_<YYYY-MM-DD>.pdf`
+- `output/test_gate_<YYYY-MM-DD_HHMMSS>.json`
 - `Phase 5 Test Gate PASS`
 
 ## Optional Real Email Test (Controlled)
@@ -72,6 +73,11 @@ CREDENTIAL_HARDENING_REQUIRED=true ./scripts/phase5_test_gate.sh .
   - enforced: fail-fast when one of these is true
     - `CREDENTIAL_HARDENING_REQUIRED=true`
     - `ENABLE_STRICT_ENV_GUARD=true`
+
+## Gate Log UX
+- Each gate prints explicit mode in log:
+  - `mode=required`
+  - `mode=optional`
 
 ## Rollback Guidance
 - If gate fails, do not deploy.
