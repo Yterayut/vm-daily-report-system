@@ -109,5 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: phase5-gate-${{ matrix.lane }}
-          path: output/test_gate_*.json
+          path: |
+            output/test_gate_*.json
+            output/run_summary_*.json
           if-no-files-found: warn
