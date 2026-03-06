@@ -85,11 +85,13 @@ def _get_service_alerts_with_flag():
     return []
 
 try:
-    from load_env import load_env_file, check_required_vars
+    from load_env import load_env_file, check_required_vars, check_credential_hardening
     load_env_file()
     # In non-strict mode, API can still start with degraded/fallback behavior.
     if not check_required_vars(profile='api', fail_on_error=False):
         raise RuntimeError("Strict env guard failed for mobile API profile")
+    if not check_credential_hardening(fail_on_error=False):
+        raise RuntimeError("Credential hardening guard failed for mobile API")
     print("✅ Environment loaded successfully")
 except ImportError as e:
     print(f"⚠️ Environment loader not available: {e}")

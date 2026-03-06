@@ -272,6 +272,52 @@ def check_required_vars(profile: str = "report", fail_on_error: Optional[bool] =
         fail_on_error=effective_fail_on_error
     )
 
+
+def check_credential_hardening(fail_on_error: Optional[bool] = None) -> bool:
+    """
+    Validate credentials against weak/default-like patterns.
+    Enforcement can be controlled by:
+    - CREDENTIAL_HARDENING_REQUIRED=true
+    - ENABLE_STRICT_ENV_GUARD=true
+    """
+    user = (os.getenv("ZABBIX_USER") or "").strip()
+    password = (os.getenv("ZABBIX_PASS") or "").strip()
+
+    default_users = {"admin", "test", "administrator"}
+    default_passwords = {"zabbix", "test", "admin", "password", "123456"}
+
+    issues = []
+    if not user or not password:
+        issues.append("ZABBIX_USER/ZABBIX_PASS missing")
+    else:
+        if user.lower() in default_users:
+            issues.append("ZABBIX_USER appears default-like ('{}')".format(user))
+        if password.lower() in default_passwords:
+            issues.append("ZABBIX_PASS appears default-like")
+        if len(password) < 8:
+            issues.append("ZABBIX_PASS length < 8")
+
+    hardening_required = os.getenv("CREDENTIAL_HARDENING_REQUIRED", "false").lower() == "true"
+    strict_guard = os.getenv("ENABLE_STRICT_ENV_GUARD", "false").lower() == "true"
+
+    if fail_on_error is None:
+        effective_fail_on_error = hardening_required or strict_guard
+    else:
+        effective_fail_on_error = fail_on_error or hardening_required or strict_guard
+
+    if issues:
+        safe_log_warning("⚠️ Credential hardening check detected issues:")
+        for item in issues:
+            safe_log_warning("   - {}".format(item))
+        if effective_fail_on_error:
+            safe_log_error("❌ Credential hardening check failed (enforced)")
+            return False
+        safe_log_warning("⚠️ Credential hardening check is warn-only in current mode")
+        return True
+
+    safe_log_info("✅ Credential hardening check passed")
+    return True
+
 def show_current_config():
     """Backward compatible config display"""
     loader = SecureEnvLoader()

@@ -19,6 +19,7 @@ try:
     from load_env import (
         load_env_file, 
         check_required_vars, 
+        check_credential_hardening,
         get_config_dict, 
         setup_logging
     )
@@ -120,6 +121,11 @@ class EnhancedVMReportOrchestrator:
             # Validate required variables
             if not check_required_vars(profile='report', fail_on_error=True):
                 self.logger.error("❌ Configuration validation failed")
+                return False
+
+            # Optional/enforced credential hardening guard.
+            if not check_credential_hardening():
+                self.logger.error("❌ Credential hardening validation failed")
                 return False
             
             # Get configuration

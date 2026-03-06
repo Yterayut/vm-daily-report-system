@@ -65,6 +65,14 @@ CREDENTIAL_HARDENING_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ./scripts/zabbix_auth_preflight.sh .
 ```
 
+## Runtime Guard (App Startup)
+- `check_credential_hardening()` now runs during app/report initialization.
+- Behavior:
+  - default: warn-only
+  - enforced: fail-fast when one of these is true
+    - `CREDENTIAL_HARDENING_REQUIRED=true`
+    - `ENABLE_STRICT_ENV_GUARD=true`
+
 ## Rollback Guidance
 - If gate fails, do not deploy.
 - Revert only the current phase commit and rerun gate.
