@@ -16,14 +16,17 @@ Date: 2026-03-06
 ## Included Gates
 1. Compile check for main runtime modules.
 2. Secret scan (`gitleaks` if available, regex fallback otherwise).
-3. Zabbix auth preflight.
+3. Credential hardening preflight.
+   - Default: optional (warn-and-continue)
+   - Required mode: `CREDENTIAL_HARDENING_REQUIRED=true`
+4. Zabbix auth preflight.
    - Default: optional (warn-and-continue)
    - Required mode: `ZABBIX_PREFLIGHT_REQUIRED=true`
-4. Contract test for service health schema.
-5. Smoke run:
+5. Contract test for service health schema.
+6. Smoke run:
    - Generate VM PDF + Service PDF.
    - Email integration in dry-run mode to one recipient only.
-6. Ops dry-run metadata:
+7. Ops dry-run metadata:
    - Branch/head capture.
    - Rollback hint.
 
@@ -49,6 +52,11 @@ python3 daily_report.py --simple
 ## Optional Zabbix Strict Gate
 ```bash
 ZABBIX_PREFLIGHT_REQUIRED=true ./scripts/phase5_test_gate.sh .
+```
+
+## Optional Credential Hardening Strict Gate
+```bash
+CREDENTIAL_HARDENING_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ```
 
 ## Zabbix Credential Setup (Safe)

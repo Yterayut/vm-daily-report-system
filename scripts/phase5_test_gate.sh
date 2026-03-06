@@ -13,7 +13,7 @@ log_step() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
 }
 
-log_step "Gate 1/6: Compile check"
+log_step "Gate 1/7: Compile check"
 python3 -m py_compile \
   daily_report.py \
   mobile_api.py \
@@ -24,10 +24,21 @@ python3 -m py_compile \
   load_env.py \
   service_health_adapter.py
 
-log_step "Gate 2/6: Secret scan"
+log_step "Gate 2/7: Secret scan"
 ./scripts/secret_scan.sh .
 
-log_step "Gate 3/6: Zabbix auth preflight (optional)"
+log_step "Gate 3/7: Credential hardening preflight (optional)"
+if ./scripts/credential_hardening_preflight.sh .; then
+  echo "Credential hardening preflight PASS/WARN"
+else
+  if [[ "${CREDENTIAL_HARDENING_REQUIRED:-false}" == "true" ]]; then
+    echo "Credential hardening preflight FAIL and required => gate failed"
+    exit 1
+  fi
+  echo "Credential hardening preflight FAIL but optional => continue"
+fi
+
+log_step "Gate 4/7: Zabbix auth preflight (optional)"
 if ./scripts/zabbix_auth_preflight.sh .; then
   echo "Zabbix preflight PASS"
 else
@@ -38,7 +49,7 @@ else
   echo "Zabbix preflight FAIL but optional => continue"
 fi
 
-log_step "Gate 4/6: Contract test (/api/services/health schema)"
+log_step "Gate 5/7: Contract test (/api/services/health schema)"
 ENABLE_NEW_SERVICE_SOURCE=true python3 - <<'PY'
 from mobile_api import get_carbon_services_sync
 
@@ -67,7 +78,7 @@ print("Contract PASS: groups={}, overall_status={}".format(
 ))
 PY
 
-log_step "Gate 5/6: Smoke test (generate VM + Service PDF, email dry-run single recipient)"
+log_step "Gate 6/7: Smoke test (generate VM + Service PDF, email dry-run single recipient)"
 ENABLE_NEW_SERVICE_SOURCE=true \
 EMAIL_DRY_RUN=true \
 LINE_NOTIFICATIONS_ENABLED=false \
@@ -87,7 +98,7 @@ if [[ ! -f "$svc_pdf" ]]; then
 fi
 echo "Smoke PASS: ${vm_pdf}, ${svc_pdf}"
 
-log_step "Gate 6/6: Ops dry-run (deploy/rollback prerequisites)"
+log_step "Gate 7/7: Ops dry-run (deploy/rollback prerequisites)"
 current_branch="$(git branch --show-current)"
 head_commit="$(git rev-parse --short HEAD)"
 echo "Ops dry-run PASS: branch=${current_branch}, head=${head_commit}"
