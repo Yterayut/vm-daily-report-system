@@ -1,0 +1,25 @@
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime/log/output
+logs/
+output/
+*.log
+*.pid
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Checkpoints/backups
+checkpoints/
+archive/
+*.bak
+*.backup
