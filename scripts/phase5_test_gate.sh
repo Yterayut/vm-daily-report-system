@@ -11,7 +11,9 @@ fi
 
 mkdir -p output
 RUN_ID="$(date +%Y%m%d_%H%M%S_%N)_$$"
+START_TS="$(date -Iseconds)"
 ARTIFACT_PATH="output/test_gate_${RUN_ID}.json"
+RUN_SUMMARY_PATH="output/run_summary_$(date +%F).json"
 RESULTS_FILE="$(mktemp)"
 SMOKE_LOG="$(mktemp)"
 
@@ -46,12 +48,12 @@ record_gate() {
 
 write_artifact() {
   local overall_status="$1"
-  python3 - <<'PY' "$RESULTS_FILE" "$ARTIFACT_PATH" "$RUN_ID" "$overall_status" "$VM_COUNT" "$ZABBIX_AUTH" "$SMTP_AUTH" "$MAIL_SENT" "$ERROR_COUNT"
+  python3 - <<'PY' "$RESULTS_FILE" "$ARTIFACT_PATH" "$RUN_SUMMARY_PATH" "$RUN_ID" "$START_TS" "$overall_status" "$VM_COUNT" "$ZABBIX_AUTH" "$SMTP_AUTH" "$MAIL_SENT" "$ERROR_COUNT"
 import json
 import sys
 from datetime import datetime
 
-results_file, artifact_path, run_id, overall_status, vm_count, zabbix_auth, smtp_auth, mail_sent, error_count = sys.argv[1:]
+results_file, artifact_path, run_summary_path, run_id, ts_start, overall_status, vm_count, zabbix_auth, smtp_auth, mail_sent, error_count = sys.argv[1:]
 
 entries = []
 with open(results_file, "r", encoding="utf-8") as f:
@@ -69,6 +71,7 @@ with open(results_file, "r", encoding="utf-8") as f:
 
 payload = {
     "run_id": run_id,
+    "timestamp_start": ts_start,
     "timestamp_end": datetime.now().isoformat(),
     "overall_status": overall_status,
     "summary": {
@@ -83,6 +86,20 @@ payload = {
 
 with open(artifact_path, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)
+
+run_summary = {
+    "run_id": run_id,
+    "timestamp_start": ts_start,
+    "timestamp_end": datetime.now().isoformat(),
+    "overall_status": overall_status,
+    "zabbix_auth": zabbix_auth,
+    "smtp_auth": smtp_auth,
+    "vm_count": int(vm_count),
+    "mail_sent": mail_sent,
+    "error_count": int(error_count),
+}
+with open(run_summary_path, "w", encoding="utf-8") as f:
+    json.dump(run_summary, f, indent=2)
 
 print(f"Artifact written: {artifact_path}")
 PY
@@ -162,7 +179,15 @@ else
   fi
 fi
 
-log_step "Gate 6/8: Contract test (/api/services/health schema) (mode=required)"
+log_step "Gate 6/9: Config contract test (mode=required)"
+if python3 ./scripts/config_contract_test.py; then
+  record_gate "config_contract" "pass" "required" "ok"
+else
+  record_gate "config_contract" "fail" "required" "config contract failed"
+  fail_and_exit "config contract gate failed"
+fi
+
+log_step "Gate 7/9: Contract test (/api/services/health schema) (mode=required)"
 if ENABLE_NEW_SERVICE_SOURCE=true python3 - <<'PY'
 from mobile_api import get_carbon_services_sync
 
@@ -197,7 +222,7 @@ else
   fail_and_exit "contract gate failed"
 fi
 
-log_step "Gate 7/8: Smoke test (mode=required)"
+log_step "Gate 8/9: Smoke test (mode=required)"
 if ENABLE_NEW_SERVICE_SOURCE=true \
   EMAIL_DRY_RUN=true \
   LINE_NOTIFICATIONS_ENABLED=false \
@@ -264,7 +289,7 @@ record_gate "vm_real_data" "pass" "$zbx_mode" "connected=${zbx_connected}, vm_co
 
 echo "Smoke PASS: ${vm_pdf}, ${svc_pdf}"
 
-log_step "Gate 8/8: Ops dry-run (mode=required)"
+log_step "Gate 9/9: Ops dry-run (mode=required)"
 current_branch="$(git branch --show-current)"
 head_commit="$(git rev-parse --short HEAD)"
 echo "Ops dry-run PASS: branch=${current_branch}, head=${head_commit}"
