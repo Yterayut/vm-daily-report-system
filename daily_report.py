@@ -29,11 +29,34 @@ try:
     )
     from generate_report import EnhancedReportGenerator
     from enhanced_alert_system import EnhancedAlertSystem, AlertLevel
-    from service_health_checker import ServiceHealthMonitor, get_service_health_data, get_service_alerts  # NEW IMPORT
+    from service_health_adapter import (
+        get_service_health_data as get_service_health_data_new,
+        get_service_alerts as get_service_alerts_new,
+    )
+    from service_health_checker import (
+        get_service_health_data as get_service_health_data_legacy,
+        get_service_alerts as get_service_alerts_legacy,
+    )
 except ImportError as e:
     print("Import error: {}".format(e))
     print("Please ensure all required modules are available")
     sys.exit(1)
+
+
+def get_service_health_data():
+    """Service health source switch with feature flag."""
+    use_new_source = os.getenv('ENABLE_NEW_SERVICE_SOURCE', 'false').lower() == 'true'
+    if use_new_source:
+        return get_service_health_data_new()
+    return get_service_health_data_legacy()
+
+
+def get_service_alerts():
+    """Service alerts source switch with feature flag."""
+    use_new_source = os.getenv('ENABLE_NEW_SERVICE_SOURCE', 'false').lower() == 'true'
+    if use_new_source:
+        return get_service_alerts_new()
+    return get_service_alerts_legacy()
 
 class EnhancedVMReportOrchestrator:
     """Enhanced orchestrator for VM daily report generation with integrated alert system"""

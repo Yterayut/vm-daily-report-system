@@ -139,9 +139,11 @@ class SecureEnvLoader:
                         if value.startswith("ENC:"):
                             value = self.decrypt_value(value)
                         
-                        # Set environment variable
-                        os.environ[key] = value
-                        loaded_vars += 1
+                        # Do not override runtime/env-injected values.
+                        # This enables safe canary flags and one-off test overrides.
+                        if key not in os.environ:
+                            os.environ[key] = value
+                            loaded_vars += 1
                     else:
                         safe_log_warning("⚠️ Invalid format at line {}: {}".format(line_num, line))
             
