@@ -1,0 +1,73 @@
+name: Phase5 Test Gate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcairo2 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libgdk-pixbuf-2.0-0 \
+            libffi-dev \
+            shared-mime-info
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          pip install pyzabbix weasyprint flask flask-cors requests aiohttp cryptography line-bot-sdk
+
+      - name: Prepare CI .env (non-sensitive dummy values)
+        run: |
+          cat > .env <<'EOF'
+          ZABBIX_URL=http://127.0.0.1/zabbix/api_jsonrpc.php
+          ZABBIX_USER=dummy
+          ZABBIX_PASS=dummy
+          ZABBIX_TIMEOUT=30
+          ZABBIX_VERIFY_SSL=false
+          SMTP_SERVER=smtp.gmail.com
+          SMTP_PORT=587
+          SMTP_USE_TLS=true
+          EMAIL_USERNAME=dummy@example.com
+          EMAIL_PASSWORD=dummy-password
+          SENDER_EMAIL=dummy@example.com
+          SENDER_NAME=VM Monitoring System
+          TO_EMAILS=yterayut@gmail.com
+          REPORT_TEMPLATE_DIR=templates
+          REPORT_OUTPUT_DIR=output
+          REPORT_STATIC_DIR=static
+          LOG_LEVEL=INFO
+          LOG_DIR=logs
+          ENABLE_LEGACY_EMAIL_FIX=false
+          ENABLE_NON_SIMPLE_MODE=false
+          ENABLE_NEW_SERVICE_SOURCE=true
+          ENABLE_STRICT_ENV_GUARD=false
+          EMAIL_DRY_RUN=true
+          LINE_NOTIFICATIONS_ENABLED=false
+          EOF
+
+      - name: Run Phase5 Test Gate
+        run: |
+          chmod +x scripts/secret_scan.sh scripts/phase5_test_gate.sh
+          ./scripts/phase5_test_gate.sh .

@@ -30,7 +30,11 @@ Date: 2026-03-06
 - `Phase 5 Test Gate PASS`
 
 ## Optional Real Email Test (Controlled)
-- Only run after SMTP credential validation:
+- Validate SMTP credential first:
+```bash
+./scripts/email_auth_preflight.sh .
+```
+- Only run real send after preflight passes:
 ```bash
 ENABLE_NEW_SERVICE_SOURCE=true \
 EMAIL_DRY_RUN=false \
