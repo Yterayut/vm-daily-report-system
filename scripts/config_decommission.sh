@@ -22,18 +22,19 @@ MANIFEST="output/config_decommission_${STAMP}.txt"
 
 mapfile -t TARGETS < <(python3 - <<'PY' "$INVENTORY_JSON"
 import json,sys
-p=sys.argv[1]
-with open(p,'r',encoding='utf-8') as f:
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
     data=json.load(f)
 for item in data.get('items', []):
-    if item.get('recommendation') == 'archive':
+    rec = item.get('recommendation')
+    conf = int(item.get('confidence', 0))
+    if rec == 'archive_safe' and conf >= 90:
         print(item.get('path'))
 PY
 )
 
 echo "[decommission] mode=${MODE}"
 echo "[decommission] inventory=${INVENTORY_JSON}"
-echo "[decommission] archive_candidates=${#TARGETS[@]}"
+echo "[decommission] archive_safe_candidates=${#TARGETS[@]}"
 
 printf '# Config decommission manifest (%s)\n' "$STAMP" > "$MANIFEST"
 for p in "${TARGETS[@]}"; do
