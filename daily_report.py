@@ -118,7 +118,7 @@ class EnhancedVMReportOrchestrator:
             self.logger.info("🎯 Enhanced VM Daily Report System Starting...")
             
             # Validate required variables
-            if not check_required_vars():
+            if not check_required_vars(profile='report', fail_on_error=True):
                 self.logger.error("❌ Configuration validation failed")
                 return False
             

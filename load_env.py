@@ -10,6 +10,31 @@ from typing import Optional, Dict, Any
 import base64
 from cryptography.fernet import Fernet
 
+REQUIRED_VAR_PROFILES: Dict[str, Dict[str, str]] = {
+    "report": {
+        "ZABBIX_URL": "Zabbix API endpoint URL",
+        "ZABBIX_USER": "Zabbix username",
+        "ZABBIX_PASS": "Zabbix password",
+        "EMAIL_USERNAME": "SMTP username",
+        "EMAIL_PASSWORD": "SMTP password/app password",
+        "SENDER_EMAIL": "Email sender address",
+        "TO_EMAILS": "Recipient email addresses",
+    },
+    "api": {
+        "ZABBIX_URL": "Zabbix API endpoint URL",
+        "ZABBIX_USER": "Zabbix username",
+        "ZABBIX_PASS": "Zabbix password",
+    },
+    "email": {
+        "SMTP_SERVER": "SMTP server hostname",
+        "SMTP_PORT": "SMTP server port",
+        "EMAIL_USERNAME": "SMTP username",
+        "EMAIL_PASSWORD": "SMTP password/app password",
+        "SENDER_EMAIL": "Email sender address",
+        "TO_EMAILS": "Recipient email addresses",
+    },
+}
+
 
 # Safe logger setup
 logger = None
@@ -154,17 +179,9 @@ class SecureEnvLoader:
             safe_log_error("❌ Error loading environment file: {}".format(e))
             return False
     
-    def validate_required_vars(self) -> bool:
-        """Enhanced validation with detailed feedback"""
-        required_vars = {
-            'ZABBIX_URL': 'Zabbix API endpoint URL',
-            'ZABBIX_USER': 'Zabbix username',
-            'ZABBIX_PASS': 'Zabbix password',
-            'EMAIL_USERNAME': 'SMTP username',
-            'EMAIL_PASSWORD': 'SMTP password/app password',
-            'SENDER_EMAIL': 'Email sender address',
-            'TO_EMAILS': 'Recipient email addresses'
-        }
+    def validate_required_vars(self, profile: str = "report", fail_on_error: bool = True) -> bool:
+        """Enhanced validation with profile-based requirements."""
+        required_vars = REQUIRED_VAR_PROFILES.get(profile, REQUIRED_VAR_PROFILES["report"])
         
         missing_vars = []
         invalid_vars = []
@@ -183,7 +200,7 @@ class SecureEnvLoader:
                         invalid_vars.append("{} - Must be valid URL".format(var))
         
         if missing_vars or invalid_vars:
-            safe_log_error("❌ Configuration validation failed:")
+            safe_log_error("❌ Configuration validation failed (profile: {})".format(profile))
             if missing_vars:
                 safe_log_error("Missing variables:")
                 for var in missing_vars:
@@ -192,9 +209,12 @@ class SecureEnvLoader:
                 safe_log_error("Invalid variables:")
                 for var in invalid_vars:
                     safe_log_error("   - {}".format(var))
-            return False
+            if fail_on_error:
+                return False
+            safe_log_warning("⚠️ Non-strict mode: continue despite env validation errors")
+            return True
         
-        safe_log_info("✅ All required environment variables validated successfully")
+        safe_log_info("✅ All required environment variables validated successfully (profile: {})".format(profile))
         return True
     
     def show_config_summary(self):
@@ -240,10 +260,17 @@ def load_env_file(env_path: Optional[str] = None) -> bool:
     loader = SecureEnvLoader(env_path)
     return loader.load_env_file()
 
-def check_required_vars() -> bool:
-    """Backward compatible validation function"""
+def check_required_vars(profile: str = "report", fail_on_error: Optional[bool] = None) -> bool:
+    """Backward compatible validation function with profile/strict support."""
     loader = SecureEnvLoader()
-    return loader.validate_required_vars()
+    strict_guard = os.getenv("ENABLE_STRICT_ENV_GUARD", "false").lower() == "true"
+    if fail_on_error is None:
+        fail_on_error = True
+    effective_fail_on_error = True if strict_guard else fail_on_error
+    return loader.validate_required_vars(
+        profile=profile,
+        fail_on_error=effective_fail_on_error
+    )
 
 def show_current_config():
     """Backward compatible config display"""

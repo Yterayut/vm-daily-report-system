@@ -85,11 +85,17 @@ def _get_service_alerts_with_flag():
     return []
 
 try:
-    from load_env import load_env_file
+    from load_env import load_env_file, check_required_vars
     load_env_file()
+    # In non-strict mode, API can still start with degraded/fallback behavior.
+    if not check_required_vars(profile='api', fail_on_error=False):
+        raise RuntimeError("Strict env guard failed for mobile API profile")
     print("✅ Environment loaded successfully")
 except ImportError as e:
     print(f"⚠️ Environment loader not available: {e}")
+except Exception as e:
+    print(f"❌ Environment validation failed: {e}")
+    raise
 
 app = Flask(__name__)
 CORS(app)
