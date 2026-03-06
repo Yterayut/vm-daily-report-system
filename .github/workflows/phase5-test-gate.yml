@@ -1,0 +1,86 @@
+name: phase5-test-gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.mode.name == 'strict' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mode:
+          - name: soft
+            production_policy_required: "false"
+            credential_hardening_required: "false"
+            zabbix_preflight_required: "false"
+            smtp_preflight_required: "false"
+          - name: strict
+            production_policy_required: "true"
+            credential_hardening_required: "true"
+            zabbix_preflight_required: "true"
+            smtp_preflight_required: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create CI .env
+        run: |
+          cat > .env <<EOT
+          ZABBIX_URL=http://127.0.0.1/zabbix/api_jsonrpc.php
+          ZABBIX_USER=Admin
+          ZABBIX_PASS=zabbix
+          SMTP_SERVER=smtp.gmail.com
+          SMTP_PORT=587
+          SMTP_USE_TLS=true
+          EMAIL_USERNAME=ci@example.com
+          EMAIL_PASSWORD=ci_app_password
+          SENDER_EMAIL=ci@example.com
+          TO_EMAILS=ci@example.com
+          ENABLE_LEGACY_EMAIL_FIX=false
+          ENABLE_NEW_SERVICE_SOURCE=true
+          ENABLE_STRICT_ENV_GUARD=true
+          EMAIL_DRY_RUN=true
+          PRODUCTION_POLICY_REQUIRED=${{ matrix.mode.production_policy_required }}
+          CREDENTIAL_HARDENING_REQUIRED=${{ matrix.mode.credential_hardening_required }}
+          ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.mode.zabbix_preflight_required }}
+          SMTP_PREFLIGHT_REQUIRED=${{ matrix.mode.smtp_preflight_required }}
+          EOT
+
+      - name: Ensure scripts executable
+        run: |
+          chmod +x scripts/phase5_test_gate.sh
+          chmod +x scripts/production_policy_preflight.sh
+          chmod +x scripts/credential_hardening_preflight.sh
+          chmod +x scripts/zabbix_preflight.sh
+          chmod +x scripts/smtp_preflight.sh
+          chmod +x scripts/ops_dry_run.sh
+
+      - name: Run gate (${{ matrix.mode.name }})
+        run: |
+          PRODUCTION_POLICY_REQUIRED=${{ matrix.mode.production_policy_required }} \
+          CREDENTIAL_HARDENING_REQUIRED=${{ matrix.mode.credential_hardening_required }} \
+          ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.mode.zabbix_preflight_required }} \
+          SMTP_PREFLIGHT_REQUIRED=${{ matrix.mode.smtp_preflight_required }} \
+          ./scripts/phase5_test_gate.sh .
+
+      - name: Upload gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-gate-${{ matrix.mode.name }}
+          path: output/test_gate_*.json
+          if-no-files-found: ignore

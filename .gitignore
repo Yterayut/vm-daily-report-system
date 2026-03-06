@@ -6,6 +6,7 @@
 .env.production
 .env.staging
 .env.test
+!.env.prod.template
 
 # ⚠️ SECURITY - Any file that might contain passwords
 *password*
