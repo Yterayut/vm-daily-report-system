@@ -98,10 +98,12 @@ fail_and_exit() {
 
 CREDENTIAL_REQUIRED="${CREDENTIAL_HARDENING_REQUIRED:-false}"
 ZABBIX_REQUIRED="${ZABBIX_PREFLIGHT_REQUIRED:-false}"
+PRODUCTION_POLICY_REQUIRED="${PRODUCTION_POLICY_REQUIRED:-false}"
 export CREDENTIAL_HARDENING_REQUIRED="$CREDENTIAL_REQUIRED"
 export ZABBIX_PREFLIGHT_REQUIRED="$ZABBIX_REQUIRED"
+export PRODUCTION_POLICY_REQUIRED="$PRODUCTION_POLICY_REQUIRED"
 
-log_step "Gate 1/7: Compile check (mode=required)"
+log_step "Gate 1/8: Compile check (mode=required)"
 if python3 -m py_compile \
   daily_report.py \
   mobile_api.py \
@@ -117,7 +119,7 @@ else
   fail_and_exit "compile gate failed"
 fi
 
-log_step "Gate 2/7: Secret scan (mode=required)"
+log_step "Gate 2/8: Secret scan (mode=required)"
 if ./scripts/secret_scan.sh .; then
   record_gate "secret_scan" "pass" "required" "ok"
 else
@@ -125,8 +127,19 @@ else
   fail_and_exit "secret scan gate failed"
 fi
 
+policy_mode="$(bool_mode "$PRODUCTION_POLICY_REQUIRED")"
+log_step "Gate 3/8: Production policy preflight (mode=${policy_mode})"
+if ./scripts/production_policy_preflight.sh .; then
+  record_gate "production_policy" "pass" "$policy_mode" "pass_or_warn"
+else
+  record_gate "production_policy" "fail" "$policy_mode" "production policy check failed"
+  if [[ "$policy_mode" == "required" ]]; then
+    fail_and_exit "production policy gate failed"
+  fi
+fi
+
 cred_mode="$(bool_mode "$CREDENTIAL_REQUIRED")"
-log_step "Gate 3/7: Credential hardening preflight (mode=${cred_mode})"
+log_step "Gate 4/8: Credential hardening preflight (mode=${cred_mode})"
 if ./scripts/credential_hardening_preflight.sh .; then
   record_gate "credential_hardening" "pass" "$cred_mode" "pass_or_warn"
 else
@@ -137,7 +150,7 @@ else
 fi
 
 zbx_mode="$(bool_mode "$ZABBIX_REQUIRED")"
-log_step "Gate 4/7: Zabbix auth preflight (mode=${zbx_mode})"
+log_step "Gate 5/8: Zabbix auth preflight (mode=${zbx_mode})"
 if ./scripts/zabbix_auth_preflight.sh .; then
   ZABBIX_AUTH="pass"
   record_gate "zabbix_preflight" "pass" "$zbx_mode" "ok"
@@ -149,7 +162,7 @@ else
   fi
 fi
 
-log_step "Gate 5/7: Contract test (/api/services/health schema) (mode=required)"
+log_step "Gate 6/8: Contract test (/api/services/health schema) (mode=required)"
 if ENABLE_NEW_SERVICE_SOURCE=true python3 - <<'PY'
 from mobile_api import get_carbon_services_sync
 
@@ -184,7 +197,7 @@ else
   fail_and_exit "contract gate failed"
 fi
 
-log_step "Gate 6/7: Smoke test (mode=required)"
+log_step "Gate 7/8: Smoke test (mode=required)"
 if ENABLE_NEW_SERVICE_SOURCE=true \
   EMAIL_DRY_RUN=true \
   LINE_NOTIFICATIONS_ENABLED=false \
@@ -251,7 +264,7 @@ record_gate "vm_real_data" "pass" "$zbx_mode" "connected=${zbx_connected}, vm_co
 
 echo "Smoke PASS: ${vm_pdf}, ${svc_pdf}"
 
-log_step "Gate 7/7: Ops dry-run (mode=required)"
+log_step "Gate 8/8: Ops dry-run (mode=required)"
 current_branch="$(git branch --show-current)"
 head_commit="$(git rev-parse --short HEAD)"
 echo "Ops dry-run PASS: branch=${current_branch}, head=${head_commit}"

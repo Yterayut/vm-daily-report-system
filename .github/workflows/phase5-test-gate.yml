@@ -18,10 +18,12 @@ jobs:
           - lane: soft
             credential_hardening_required: "false"
             zabbix_preflight_required: "false"
+            production_policy_required: "false"
             allow_failure: false
           - lane: strict
             credential_hardening_required: "true"
             zabbix_preflight_required: "true"
+            production_policy_required: "true"
             allow_failure: true
     continue-on-error: ${{ matrix.allow_failure }}
 
@@ -80,13 +82,15 @@ jobs:
           LINE_NOTIFICATIONS_ENABLED=false
           CREDENTIAL_HARDENING_REQUIRED=${{ matrix.credential_hardening_required }}
           ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.zabbix_preflight_required }}
+          PRODUCTION_POLICY_REQUIRED=${{ matrix.production_policy_required }}
           EOF
 
       - name: Run Phase5 Test Gate (${{ matrix.lane }})
         run: |
-          chmod +x scripts/secret_scan.sh scripts/phase5_test_gate.sh scripts/credential_hardening_preflight.sh scripts/zabbix_auth_preflight.sh
+          chmod +x scripts/secret_scan.sh scripts/phase5_test_gate.sh scripts/credential_hardening_preflight.sh scripts/zabbix_auth_preflight.sh scripts/production_policy_preflight.sh
           CREDENTIAL_HARDENING_REQUIRED=${{ matrix.credential_hardening_required }} \
           ZABBIX_PREFLIGHT_REQUIRED=${{ matrix.zabbix_preflight_required }} \
+          PRODUCTION_POLICY_REQUIRED=${{ matrix.production_policy_required }} \
           ./scripts/phase5_test_gate.sh .
 
       - name: Show latest gate artifact

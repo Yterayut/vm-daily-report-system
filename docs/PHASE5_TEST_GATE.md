@@ -16,17 +16,20 @@ Date: 2026-03-06
 ## Included Gates
 1. Compile check for main runtime modules.
 2. Secret scan (`gitleaks` if available, regex fallback otherwise).
-3. Credential hardening preflight.
+3. Production policy preflight.
+   - Default: optional (warn-and-continue)
+   - Required mode: `PRODUCTION_POLICY_REQUIRED=true`
+4. Credential hardening preflight.
    - Default: optional (warn-and-continue)
    - Required mode: `CREDENTIAL_HARDENING_REQUIRED=true`
-4. Zabbix auth preflight.
+5. Zabbix auth preflight.
    - Default: optional (warn-and-continue)
    - Required mode: `ZABBIX_PREFLIGHT_REQUIRED=true`
-5. Contract test for service health schema.
-6. Smoke run:
+6. Contract test for service health schema.
+7. Smoke run:
    - Generate VM PDF + Service PDF.
    - Email integration in dry-run mode to one recipient only.
-7. Ops dry-run metadata:
+8. Ops dry-run metadata:
    - Branch/head capture.
    - Rollback hint.
 
@@ -55,6 +58,11 @@ python3 daily_report.py --simple
 ZABBIX_PREFLIGHT_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ```
 
+## Optional Production Policy Strict Gate
+```bash
+PRODUCTION_POLICY_REQUIRED=true ./scripts/phase5_test_gate.sh .
+```
+
 ## Optional Credential Hardening Strict Gate
 ```bash
 CREDENTIAL_HARDENING_REQUIRED=true ./scripts/phase5_test_gate.sh .
@@ -65,6 +73,10 @@ CREDENTIAL_HARDENING_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ./scripts/configure_zabbix_env.sh .
 ./scripts/zabbix_auth_preflight.sh .
 ```
+
+## Production Template
+- File: `.env.prod.template`
+- Purpose: baseline production flags and structure without secrets.
 
 ## Runtime Guard (App Startup)
 - `check_credential_hardening()` now runs during app/report initialization.
