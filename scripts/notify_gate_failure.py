@@ -39,6 +39,11 @@ password = os.getenv("EMAIL_PASSWORD", "")
 recipient = os.getenv("GATE_ALERT_EMAIL", os.getenv("TO_EMAILS", "").split(",")[0].strip())
 sender = os.getenv("SENDER_EMAIL", username)
 
+if os.getenv("GATE_ALERT_DRY_RUN", "false").lower() == "true":
+    print(f"gate-failure-alert: dry-run -> would send to {recipient or '<missing-recipient>'}")
+    print(f"gate-failure-alert: artifact={artifact}")
+    raise SystemExit(0)
+
 if not all([smtp_server, username, password, recipient, sender]):
     print("gate-failure-alert: missing SMTP settings or recipient")
     raise SystemExit(0)
