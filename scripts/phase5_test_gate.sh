@@ -8,6 +8,7 @@ RUN_ID="$(date +%Y%m%d_%H%M%S)_$(date +%N)_$$"
 START_TS="$(date -Iseconds)"
 OUTPUT_DIR="output"
 ARTIFACT_PATH="$OUTPUT_DIR/test_gate_${RUN_ID}.json"
+RUN_SUMMARY_PATH="$OUTPUT_DIR/run_summary_$(date +%F).json"
 mkdir -p "$OUTPUT_DIR"
 
 PRODUCTION_POLICY_REQUIRED="${PRODUCTION_POLICY_REQUIRED:-false}"
@@ -46,14 +47,14 @@ write_artifact() {
   end_ts="$(date -Iseconds)"
   duration="$(( $(date +%s) - $(date -d "$START_TS" +%s 2>/dev/null || date +%s) ))"
 
-  python3 - "$GATE_LOG" "$ARTIFACT_PATH" "$RUN_ID" "$START_TS" "$end_ts" "$duration" "$OVERALL_STATUS" \
+  python3 - "$GATE_LOG" "$ARTIFACT_PATH" "$RUN_SUMMARY_PATH" "$RUN_ID" "$START_TS" "$end_ts" "$duration" "$OVERALL_STATUS" \
     "$PRODUCTION_POLICY_REQUIRED" "$CREDENTIAL_HARDENING_REQUIRED" "$ZABBIX_PREFLIGHT_REQUIRED" "$SMTP_PREFLIGHT_REQUIRED" \
     "$ZABBIX_AUTH" "$SMTP_AUTH" "$VM_COUNT" "$MAIL_SENT" "$ERROR_COUNT" <<'PY'
 import json
 import sys
 
 (
- gate_log, artifact_path, run_id, ts_start, ts_end, duration_sec, overall,
+ gate_log, artifact_path, run_summary_path, run_id, ts_start, ts_end, duration_sec, overall,
  production_policy_required, cred_required, zbx_required, smtp_required,
  zabbix_auth, smtp_auth, vm_count, mail_sent, error_count,
 ) = sys.argv[1:]
@@ -99,6 +100,22 @@ artifact = {
 
 with open(artifact_path, "w", encoding="utf-8") as fh:
     json.dump(artifact, fh, ensure_ascii=False, indent=2)
+
+run_summary = {
+    "run_id": run_id,
+    "timestamp_start": ts_start,
+    "timestamp_end": ts_end,
+    "duration_sec": int(duration_sec) if str(duration_sec).isdigit() else None,
+    "overall_status": overall,
+    "zabbix_auth": zabbix_auth,
+    "smtp_auth": smtp_auth,
+    "vm_count": int(vm_count) if str(vm_count).isdigit() else 0,
+    "mail_sent": mail_sent,
+    "error_count": int(error_count) if str(error_count).isdigit() else 0,
+}
+
+with open(run_summary_path, "w", encoding="utf-8") as fh:
+    json.dump(run_summary, fh, ensure_ascii=False, indent=2)
 
 print(artifact_path)
 PY
@@ -198,10 +215,13 @@ PY
 )"
 fi
 
-# Gate 7: Contract
+# Gate 7: Config contract
+run_gate_cmd "ConfigContract" "true" "python3 ./scripts/config_contract_test.py" "$(mktemp)"
+
+# Gate 8: Service health contract
 run_gate_cmd "ContractServiceHealth" "true" "python3 ./scripts/contract_test_service_health.py" "$(mktemp)"
 
-# Gate 8: Smoke
+# Gate 9: Smoke
 OUT8="$(mktemp)"
 run_gate_cmd "SmokeReports" "true" "python3 ./scripts/smoke_test_reports.py" "$OUT8"
 if [[ -s "$OUT8" ]]; then
@@ -244,7 +264,7 @@ PY
   fi
 fi
 
-# Gate 9: Ops dry run
+# Gate 10: Ops dry run
 run_gate_cmd "OpsDryRun" "true" "./scripts/ops_dry_run.sh" "$(mktemp)"
 
 if [[ "$OVERALL_STATUS" == "PASS" ]]; then
