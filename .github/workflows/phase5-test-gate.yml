@@ -82,5 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-gate-${{ matrix.mode.name }}
-          path: output/test_gate_*.json
+          path: |
+            output/test_gate_*.json
+            output/run_summary_*.json
           if-no-files-found: ignore
