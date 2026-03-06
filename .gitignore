@@ -77,6 +77,7 @@ archive/
 *.backup
 *.old
 *.orig
+docs/legacy_notes/
 
 # Local caches/temp
 .cache/
