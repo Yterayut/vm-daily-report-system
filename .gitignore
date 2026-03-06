@@ -12,9 +12,13 @@
 *.pfx
 id_rsa*
 known_hosts
-
-# Keep sample environment in git
+# Keep sample environment and production docs/scripts in git
 !.env.example
+!docs/PRODUCTION_RUNBOOK.md
+!docs/PRODUCTION_LOCKDOWN_PHASE1_5_SPEC_v1_0.md
+!docs/BRANCH_PROTECTION_POLICY.md
+!scripts/prod_run_daily_report.sh
+!scripts/production_lockdown_preflight.sh
 
 # Runtime artifacts
 logs/

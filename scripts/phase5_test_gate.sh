@@ -110,6 +110,7 @@ fail_and_exit() {
   ERROR_COUNT=$((ERROR_COUNT + 1))
   record_gate "final" "fail" "required" "$reason"
   write_artifact "fail"
+  python3 ./scripts/notify_gate_failure.py || true
   exit 1
 }
 
