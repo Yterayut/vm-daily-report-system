@@ -51,6 +51,12 @@ python3 daily_report.py --simple
 ZABBIX_PREFLIGHT_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ```
 
+## Zabbix Credential Setup (Safe)
+```bash
+./scripts/configure_zabbix_env.sh .
+./scripts/zabbix_auth_preflight.sh .
+```
+
 ## Rollback Guidance
 - If gate fails, do not deploy.
 - Revert only the current phase commit and rerun gate.

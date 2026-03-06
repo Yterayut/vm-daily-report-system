@@ -31,6 +31,12 @@ try:
     hosts = zapi.host.get(output=["hostid"], limit=1)
     print("PASS: Zabbix authentication successful, host_probe_count={}".format(len(hosts)))
 except Exception as e:
-    print("FAIL: Zabbix authentication failed:", e)
+    msg = str(e)
+    print("FAIL: Zabbix authentication failed:", msg)
+    if "Incorrect user name or password" in msg or "temporarily blocked" in msg:
+        print("HINT: verify ZABBIX_USER/ZABBIX_PASS and ensure account is not locked.")
+        print("HINT: current user='{}'".format(user))
+    if user.strip().lower() in {"test", "admin"} and password.strip().lower() in {"test", "zabbix"}:
+        print("HINT: detected default-like credentials; replace with real service account.")
     raise SystemExit(1)
 PY
