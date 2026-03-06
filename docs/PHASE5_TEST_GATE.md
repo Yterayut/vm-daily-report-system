@@ -16,11 +16,14 @@ Date: 2026-03-06
 ## Included Gates
 1. Compile check for main runtime modules.
 2. Secret scan (`gitleaks` if available, regex fallback otherwise).
-3. Contract test for service health schema.
-4. Smoke run:
+3. Zabbix auth preflight.
+   - Default: optional (warn-and-continue)
+   - Required mode: `ZABBIX_PREFLIGHT_REQUIRED=true`
+4. Contract test for service health schema.
+5. Smoke run:
    - Generate VM PDF + Service PDF.
    - Email integration in dry-run mode to one recipient only.
-5. Ops dry-run metadata:
+6. Ops dry-run metadata:
    - Branch/head capture.
    - Rollback hint.
 
@@ -41,6 +44,11 @@ EMAIL_DRY_RUN=false \
 LINE_NOTIFICATIONS_ENABLED=false \
 TO_EMAILS=yterayut@gmail.com \
 python3 daily_report.py --simple
+```
+
+## Optional Zabbix Strict Gate
+```bash
+ZABBIX_PREFLIGHT_REQUIRED=true ./scripts/phase5_test_gate.sh .
 ```
 
 ## Rollback Guidance
