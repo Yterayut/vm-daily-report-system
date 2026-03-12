@@ -15,6 +15,12 @@ from flask_cors import CORS
 from functools import wraps
 import time
 import random
+import requests
+import asyncio
+import aiohttp
+import ssl
+from threading import Thread
+import logging
 
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -37,6 +43,15 @@ except ImportError as e:
     ALERTS_AVAILABLE = False
 
 try:
+    from service_health_checker import ServiceHealthMonitor, get_service_health_data, get_service_alerts
+    SERVICE_HEALTH_AVAILABLE = True
+    service_monitor = ServiceHealthMonitor()
+    print("✅ Service health monitoring loaded successfully")
+except ImportError as e:
+    print(f"⚠️ Service health monitoring not available: {e}")
+    SERVICE_HEALTH_AVAILABLE = False
+
+try:
     from load_env import load_env_file
     load_env_file()
     print("✅ Environment loaded successfully")
@@ -57,6 +72,411 @@ cache = {
     'trends_data': None,
     'trends_timestamp': None
 }
+
+# Carbon Services monitoring
+class CarbonServicesMonitor:
+    def __init__(self):
+        self.services = {
+            # 🌍 Carbon Footprint - INFRA UAT (Main Service)
+            'carbon_footprint_uat': {
+                'name': 'Carbon Footprint',
+                'url': 'https://uat-carbonfootprint.one.th/api/v2/health',
+                'status': 'unknown',
+                'response_time': 0,
+                'last_check': None,
+                'error_count': 0,
+                'sub_services': {},
+                'environment': 'uat',
+                'service_type': 'carbon_footprint',
+                'is_main': True
+            },
+
+            # 🌍 Carbon Footprint - INFRA PRD (Main Service)
+            'carbon_footprint_prd': {
+                'name': 'Carbon Footprint',
+                'url': 'https://carbonfootprint.one.th/api/v2/health',
+                'status': 'unknown',
+                'response_time': 0,
+                'last_check': None,
+                'error_count': 0,
+                'sub_services': {},
+                'environment': 'prd',
+                'service_type': 'carbon_footprint',
+                'is_main': True
+            },
+
+            # 🌱 Carbon Receipt - INFRA UAT (Main Service)
+            'carbon_receipt_uat': {
+                'name': 'Carbon Receipt',
+                'url': 'https://uat-carbonreceipt.one.th/api/v1/health',
+                'status': 'unknown',
+                'response_time': 0,
+                'last_check': None,
+                'error_count': 0,
+                'sub_services': {},
+                'environment': 'uat',
+                'service_type': 'carbon_receipt',
+                'is_main': True
+            },
+
+            # 🌱 Carbon Receipt - INFRA PRD (Main Service)
+            'carbon_receipt_prd': {
+                'name': 'Carbon Receipt',
+                'url': 'https://carbonreceipt.one.th/api/v1/health',
+                'status': 'unknown',
+                'response_time': 0,
+                'last_check': None,
+                'error_count': 0,
+                'sub_services': {},
+                'environment': 'prd',
+                'service_type': 'carbon_receipt',
+                'is_main': True
+            },
+
+            # 🖥️ Mobile Dashboard (Main Service)
+            'mobile_dashboard': {
+                'name': 'Mobile Dashboard',
+                'url': 'http://192.168.20.10:5000/status',
+                'status': 'unknown',
+                'response_time': 0,
+                'last_check': None,
+                'error_count': 0,
+                'sub_services': {},
+                'environment': 'prd',
+                'service_type': 'dashboard',
+                'is_main': True
+            }
+        }
+        self.cache_duration = 30  # 30 seconds
+        self.logs = []
+        
+    async def check_service_health(self, service_key):
+        """Check health of a single service"""
+        service = self.services[service_key]
+        start_time = time.time()
+        
+        # Handle Carbon Receipt sub-services as individual services
+        if service.get('source') == 'carbon_receipt_sub':
+            return await self._check_carbon_receipt_sub_service(service_key)
+        
+        try:
+            # Create SSL context that doesn't verify certificates for UAT
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(service['url']) as response:
+                    response_time = (time.time() - start_time) * 1000
+                    content_type = response.headers.get('Content-Type', '')
+                    raw_text = await response.text()
+                    data = {}
+
+                    # Support both JSON health endpoints and HTML pages (e.g. /mobile)
+                    if 'application/json' in content_type:
+                        try:
+                            data = json.loads(raw_text)
+                        except json.JSONDecodeError:
+                            data = {}
+                    else:
+                        try:
+                            data = json.loads(raw_text)
+                        except json.JSONDecodeError:
+                            data = {}
+                    
+                    # Update service status
+                    if data:
+                        service['status'] = 'ok' if response.status == 200 and data.get('status') == 'ok' else 'error'
+                    else:
+                        service['status'] = 'ok' if response.status == 200 else 'error'
+                    service['response_time'] = round(response_time, 1)
+                    service['last_check'] = datetime.now().isoformat()
+                    service['error_count'] = 0 if service['status'] == 'ok' else service['error_count'] + 1
+
+                    # Store main service metadata (database, uptime, db_latency)
+                    service['database'] = data.get('database', 'unknown')
+                    service['uptime'] = data.get('uptime', 'unknown')
+                    service['db_latency_ms'] = data.get('db_latency_ms', 0)
+
+                    # Parse sub-services if available
+                    if 'service' in data and isinstance(data['service'], dict):
+                        service['sub_services'] = {}
+                        for key, value in data['service'].items():
+                            if key.endswith('_status'):
+                                service_name = key.replace('_status', '').replace('_', ' ').title()
+                                service['sub_services'][service_name] = {
+                                    'status': value.replace(',', '').strip(),
+                                    'name': service_name
+                                }
+                    
+                    # Add log entry
+                    self.add_log('INFO', service_key, f"Health check successful - {response_time:.1f}ms")
+                    
+                    return {
+                        'status': service['status'],
+                        'response_time': service['response_time'],
+                        'data': data
+                    }
+                    
+        except asyncio.TimeoutError:
+            service['status'] = 'timeout'
+            service['response_time'] = 30000
+            service['error_count'] += 1
+            service['last_check'] = datetime.now().isoformat()
+            self.add_log('ERROR', service_key, "Request timeout (30s)")
+            return {'status': 'timeout', 'error': 'Request timeout'}
+            
+        except Exception as e:
+            service['status'] = 'error'
+            service['response_time'] = (time.time() - start_time) * 1000
+            service['error_count'] += 1
+            service['last_check'] = datetime.now().isoformat()
+            self.add_log('ERROR', service_key, f"Health check failed: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    async def _check_carbon_receipt_sub_service(self, service_key):
+        """Check Carbon Receipt sub-service as individual service"""
+        service = self.services[service_key]
+        start_time = time.time()
+        
+        try:
+            # Create SSL context that doesn't verify certificates for UAT
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(service['url']) as response:
+                    response_time = (time.time() - start_time) * 1000
+                    data = await response.json()
+                    
+                    # Map service key to expected sub-service key
+                    sub_service_mapping = {
+                        'etax_api': 'etax_api_status',      # Fixed: was 'etax_status'
+                        'one_api': 'one_api_status',        # Fixed: was 'one_status'
+                        'one_box_api': 'one_box_api_status', # Fixed: was 'one_box_status'
+                        'vekin_api': 'vekin_api_status'     # Fixed: was 'vekin_status'
+                    }
+                    
+                    # Get status from sub-service data
+                    sub_service_key = sub_service_mapping.get(service_key)
+                    sub_service_status = 'unknown'
+                    
+                    if 'service' in data and isinstance(data['service'], dict) and sub_service_key:
+                        sub_service_status = data['service'].get(sub_service_key, 'unknown')
+                        if isinstance(sub_service_status, str):
+                            sub_service_status = sub_service_status.replace(',', '').strip()
+                    
+                    # Update service status based on sub-service
+                    service['status'] = 'ok' if sub_service_status.lower() == 'ok' else 'error'
+                    service['response_time'] = round(response_time, 1)
+                    service['last_check'] = datetime.now().isoformat()
+                    service['error_count'] = 0 if service['status'] == 'ok' else service['error_count'] + 1
+                    
+                    # Add log entry
+                    self.add_log('INFO', service_key, f"Sub-service check successful - {service_key}: {sub_service_status}")
+                    
+                    return {
+                        'status': service['status'],
+                        'response_time': service['response_time'],
+                        'sub_service_status': sub_service_status
+                    }
+                    
+        except Exception as e:
+            # Handle errors
+            service['status'] = 'error'
+            service['error_count'] += 1
+            service['last_check'] = datetime.now().isoformat()
+            self.add_log('ERROR', service_key, f"Sub-service check failed: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+    
+    def add_log(self, level, service, message):
+        """Add log entry"""
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'level': level,
+            'service': service,
+            'message': message,
+            'id': f"log_{int(time.time() * 1000)}"
+        }
+        self.logs.insert(0, log_entry)  # Add to beginning
+        
+        # Keep only last 100 logs
+        if len(self.logs) > 100:
+            self.logs = self.logs[:100]
+    
+    def get_summary(self):
+        """Get summary of all services"""
+        total_services = 0
+        healthy_services = 0
+        warning_services = 0
+        error_services = 0
+        
+        for service_key, service in self.services.items():
+            # Count main services
+            total_services += 1
+            if service['status'] == 'ok':
+                healthy_services += 1
+            elif service['status'] in ['timeout', 'error']:
+                error_services += 1
+            else:
+                warning_services += 1
+                
+            # Count sub-services
+            for sub_name, sub_service in service.get('sub_services', {}).items():
+                total_services += 1
+                if sub_service['status'] == 'ok':
+                    healthy_services += 1
+                elif 'error' in sub_service['status'].lower():
+                    error_services += 1
+                else:
+                    warning_services += 1
+        
+        availability = (healthy_services / total_services * 100) if total_services > 0 else 0
+        
+        return {
+            'total_services': total_services,
+            'healthy_services': healthy_services,
+            'warning_services': warning_services,
+            'error_services': error_services,
+            'availability_percentage': round(availability, 1),
+            'overall_status': 'healthy' if availability > 80 else 'warning' if availability > 50 else 'critical'
+        }
+
+# Initialize Carbon Services Monitor
+carbon_monitor = CarbonServicesMonitor()
+
+def get_carbon_services_sync():
+    """Sync wrapper for getting carbon services data"""
+    try:
+        # Check if there's already an event loop running
+        try:
+            loop = asyncio.get_running_loop()
+            # If there is, run in a thread pool
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(lambda: asyncio.run(check_all_carbon_services()))
+                return future.result(timeout=60)  # 60s for slow UAT APIs (20-30s response time)
+        except RuntimeError:
+            # No running loop, safe to create new one
+            return asyncio.run(check_all_carbon_services())
+    except Exception as e:
+        print(f"❌ Error in carbon services sync wrapper: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return minimal error data - no fallback
+        raise
+
+async def check_all_carbon_services():
+    """Check all carbon services asynchronously and organize by groups"""
+    tasks = []
+    for service_key in carbon_monitor.services.keys():
+        tasks.append(carbon_monitor.check_service_health(service_key))
+
+    try:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    except Exception as e:
+        carbon_monitor.add_log('ERROR', 'system', f"Failed to check services: {str(e)}")
+
+    # Organize services into 4 groups with sub-services
+    groups = {
+        'carbon_footprint_uat': {
+            'title': 'Carbon Footprint - INFRA UAT',
+            'icon': '🌍',
+            'main_service': None,
+            'sub_services': []
+        },
+        'carbon_footprint_prd': {
+            'title': 'Carbon Footprint - INFRA PRD',
+            'icon': '🌍',
+            'main_service': None,
+            'sub_services': []
+        },
+        'carbon_receipt_uat': {
+            'title': 'Carbon Receipt - INFRA UAT',
+            'icon': '🌱',
+            'main_service': None,
+            'sub_services': []
+        },
+        'carbon_receipt_prd': {
+            'title': 'Carbon Receipt - INFRA PRD',
+            'icon': '🌱',
+            'main_service': None,
+            'sub_services': []
+        },
+        'mobile_dashboard': {
+            'title': 'Mobile Dashboard - PRD',
+            'icon': '🖥️',
+            'main_service': None,
+            'sub_services': []
+        }
+    }
+
+    # Process each service and assign to groups
+    for service_key, service_data in carbon_monitor.services.items():
+        if service_key == 'carbon_footprint_uat':
+            groups['carbon_footprint_uat']['main_service'] = service_data
+            # Add sub-services from API response
+            if service_data.get('sub_services'):
+                for sub_name, sub_data in service_data['sub_services'].items():
+                    groups['carbon_footprint_uat']['sub_services'].append({
+                        'name': sub_name,
+                        'status': sub_data.get('status', 'unknown'),
+                        'key': sub_name.lower().replace(' ', '_')
+                    })
+
+        elif service_key == 'carbon_footprint_prd':
+            groups['carbon_footprint_prd']['main_service'] = service_data
+            # Add sub-services from API response
+            if service_data.get('sub_services'):
+                for sub_name, sub_data in service_data['sub_services'].items():
+                    groups['carbon_footprint_prd']['sub_services'].append({
+                        'name': sub_name,
+                        'status': sub_data.get('status', 'unknown'),
+                        'key': sub_name.lower().replace(' ', '_')
+                    })
+
+        elif service_key == 'carbon_receipt_uat':
+            groups['carbon_receipt_uat']['main_service'] = service_data
+            # Add sub-services from API response (including Etax API)
+            if service_data.get('sub_services'):
+                for sub_name, sub_data in service_data['sub_services'].items():
+                    # Rename Etax Api Status -> E-Tax Software
+                    display_name = 'E-Tax Software' if 'etax' in sub_name.lower() else sub_name
+                    groups['carbon_receipt_uat']['sub_services'].append({
+                        'name': display_name,
+                        'status': sub_data.get('status', 'unknown'),
+                        'key': sub_name.lower().replace(' ', '_')
+                    })
+
+        elif service_key == 'carbon_receipt_prd':
+            groups['carbon_receipt_prd']['main_service'] = service_data
+            # Add sub-services from API response (including Etax API)
+            if service_data.get('sub_services'):
+                for sub_name, sub_data in service_data['sub_services'].items():
+                    # Rename Etax Api Status -> E-Tax Software
+                    display_name = 'E-Tax Software' if 'etax' in sub_name.lower() else sub_name
+                    groups['carbon_receipt_prd']['sub_services'].append({
+                        'name': display_name,
+                        'status': sub_data.get('status', 'unknown'),
+                        'key': sub_name.lower().replace(' ', '_')
+                    })
+
+        elif service_key == 'mobile_dashboard':
+            groups['mobile_dashboard']['main_service'] = service_data
+
+    return {
+        'groups': groups,
+        'summary': carbon_monitor.get_summary(),
+        'logs': carbon_monitor.logs[:10],
+        'last_updated': datetime.now().isoformat()
+    }
 
 def gzip_response(f):
     """Decorator to compress API responses"""
@@ -528,6 +948,7 @@ def index():
     <p>Choose your interface:</p>
     <ul>
         <li><a href="/mobile">📱 Enhanced Mobile Dashboard</a></li>
+        <li><a href="/Services">🌱 Carbon Services Monitor</a></li>
         <li><a href="/api/dashboard">🔌 API Endpoint (Compressed)</a></li>
         <li><a href="/api/trends">📈 Trends Data API</a></li>
         <li><a href="/status">💚 Health Check</a></li>
@@ -568,6 +989,93 @@ def api_trends():
     
     return response_data
 
+@app.route('/api/services')
+@gzip_response
+def api_services():
+    """API endpoint for Carbon Services health data"""
+    try:
+        carbon_data = get_carbon_services_sync()
+        carbon_data['api_version'] = '2.1'
+        carbon_data['compression_enabled'] = True
+        return carbon_data
+    except Exception as e:
+        return jsonify({
+            'error': f'Carbon services check failed: {str(e)}',
+            'services': {},
+            'summary': {
+                'total_services': 0,
+                'healthy_services': 0,
+                'warning_services': 0,
+                'error_services': 0,
+                'availability_percentage': 0,
+                'overall_status': 'error'
+            },
+            'logs': [],
+            'last_updated': datetime.now().isoformat()
+        })
+
+@app.route('/api/dashboard/enhanced')
+@gzip_response
+def api_dashboard_enhanced():
+    """Enhanced dashboard API with VM + Service health data"""
+    # Get VM data
+    vm_data = get_vm_data()
+    
+    # Get service health data
+    if SERVICE_HEALTH_AVAILABLE:
+        try:
+            service_data = get_service_health_data()
+        except Exception as e:
+            service_data = {
+                'services': {},
+                'summary': {
+                    'total_count': 0,
+                    'healthy_count': 0,
+                    'warning_count': 0,
+                    'critical_count': 0,
+                    'availability_percentage': 0,
+                    'overall_status': 'error'
+                },
+                'error': str(e)
+            }
+    else:
+        service_data = {
+            'services': {},
+            'summary': {
+                'total_count': 0,
+                'healthy_count': 0,
+                'warning_count': 0,
+                'critical_count': 0,
+                'availability_percentage': 0,
+                'overall_status': 'unavailable'
+            }
+        }
+    
+    # Calculate combined health score
+    vm_health_score = vm_data.get('summary', {}).get('uptime_percentage', 0)
+    service_health_score = service_data.get('summary', {}).get('availability_percentage', 0)
+    
+    if SERVICE_HEALTH_AVAILABLE and service_data.get('summary', {}).get('total_count', 0) > 0:
+        combined_health_score = (vm_health_score + service_health_score) / 2
+    else:
+        combined_health_score = vm_health_score
+    
+    # Combine data
+    enhanced_data = {
+        **vm_data,
+        'services': service_data,
+        'combined_health': {
+            'vm_health_score': vm_health_score,
+            'service_health_score': service_health_score,
+            'combined_score': round(combined_health_score, 1),
+            'overall_status': 'healthy' if combined_health_score >= 95 else 'warning' if combined_health_score >= 80 else 'critical'
+        },
+        'api_version': '2.1-enhanced',
+        'compression_enabled': True
+    }
+    
+    return enhanced_data
+
 @app.route('/debug')
 def debug_info():
     """Debug information endpoint"""
@@ -599,1273 +1107,150 @@ def debug_info():
         'working_directory': str(Path.cwd())
     })
 
+
 @app.route('/mobile')
 def mobile_dashboard():
-    """Enhanced mobile dashboard v2.0 with trends charts"""
-    return '''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🖥️ VM Infrastructure Dashboard v2.0</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        :root {
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
-            --success-color: #4CAF50;
-            --warning-color: #FF9800;
-            --error-color: #F44336;
-            --info-color: #2196F3;
-            --background-dark: #1a1a1a;
-            --card-dark: #2d2d2d;
-            --text-light: #ffffff;
-            --text-dark: #333333;
-            --border-color: rgba(255, 255, 255, 0.2);
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            min-height: 100vh;
-            color: var(--text-light);
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-        
-        body.dark-mode {
-            background: var(--background-dark);
-            color: var(--text-light);
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            position: relative;
-        }
-        
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        
-        .version-badge {
-            display: inline-block;
-            background: var(--info-color);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-left: 8px;
-        }
-        
-        .theme-toggle {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 20px;
-            padding: 8px 15px;
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-        
-        .theme-toggle:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .tabs {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 5px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .tab {
-            flex: 1;
-            padding: 10px 20px;
-            text-align: center;
-            background: transparent;
-            border: none;
-            color: white;
-            cursor: pointer;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            font-size: 14px;
-        }
-        
-        .tab.active {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .status-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        
-        .status-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: 1px solid var(--border-color);
-        }
-        
-        body.dark-mode .status-card {
-            background: var(--card-dark);
-            border: 1px solid #444;
-        }
-        
-        .status-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-        
-        .status-card .number {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .status-card .label {
-            font-size: 14px;
-            opacity: 0.8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .section {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            border: 1px solid var(--border-color);
-        }
-        
-        body.dark-mode .section {
-            background: var(--card-dark);
-            border: 1px solid #444;
-        }
-        
-        .section h3 {
-            margin-bottom: 20px;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .metrics {
-            display: grid;
-            gap: 15px;
-        }
-        
-        .metric {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .metric-name {
-            font-weight: 500;
-        }
-        
-        .metric-bar-container {
-            flex: 1;
-            margin: 0 15px;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .metric-bar {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-        
-        .metric-value {
-            font-weight: bold;
-            min-width: 40px;
-            text-align: right;
-        }
-        
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin: 20px 0;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 15px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-card {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            border-left: 4px solid var(--info-color);
-        }
-        
-        .stat-card.warning {
-            border-left-color: var(--warning-color);
-        }
-        
-        .stat-card.success {
-            border-left-color: var(--success-color);
-        }
-        
-        .stat-card.error {
-            border-left-color: var(--error-color);
-        }
-        
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            opacity: 0.8;
-            text-transform: uppercase;
-        }
-        
-        .alert {
-            display: flex;
-            align-items: flex-start;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-        
-        .alert:hover {
-            transform: translateX(5px);
-        }
-        
-        .alert.critical {
-            background: rgba(244, 67, 54, 0.1);
-            border-left-color: var(--error-color);
-        }
-        
-        .alert.warning {
-            background: rgba(255, 152, 0, 0.1);
-            border-left-color: var(--warning-color);
-        }
-        
-        .alert.success {
-            background: rgba(76, 175, 80, 0.1);
-            border-left-color: var(--success-color);
-        }
-        
-        .alert-icon {
-            font-size: 20px;
-            margin-right: 15px;
-            margin-top: 2px;
-        }
-        
-        .alert-content {
-            flex: 1;
-        }
-        
-        .alert-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .alert-detail {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        .alert-time {
-            font-size: 12px;
-            opacity: 0.6;
-            margin-left: 10px;
-            margin-top: 2px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 50px;
-            font-size: 18px;
-        }
-        
-        .loading .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            margin-bottom: 20px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .error {
-            background: rgba(244, 67, 54, 0.2);
-            padding: 20px;
-            border-radius: 12px;
-            margin: 20px 0;
-            border-left: 4px solid var(--error-color);
-        }
-        
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            font-size: 12px;
-            opacity: 0.7;
-        }
-        
-        .refresh-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 25px;
-            padding: 10px 20px;
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 0 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .refresh-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .data-source-indicator {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-left: 10px;
-        }
-        
-        .data-source-zabbix {
-            background: var(--success-color);
-            color: white;
-        }
-        
-        .data-source-demo {
-            background: var(--warning-color);
-            color: white;
-        }
-        
-        .data-source-error {
-            background: var(--error-color);
-            color: white;
-        }
-        
-        .performance-indicator {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 8px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 8px;
-        }
-        
-        .performance-indicator.fast {
-            background: var(--success-color);
-            color: white;
-        }
-        
-        .performance-indicator.compressed {
-            background: var(--info-color);
-            color: white;
-        }
-        
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
+    """Enhanced mobile dashboard v2.1 with Carbon Services"""
+    from flask import render_template, make_response
+    import time
+
+    # Use template file instead of hardcoded HTML
+    response = make_response(render_template('enhanced_mobile_dashboard.html'))
+
+    # Anti-cache headers to force browser reload
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Last-Modified'] = time.strftime('%a, %d %b %Y %H:%M:%S GMT')
+    response.headers['ETag'] = f'"{int(time.time())}"'
+
+    return response
+
+@app.route('/debug-test')
+def debug_test():
+    """Debug test page"""
+    try:
+        with open('debug_test.html', 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        return '<h1>Debug test file not found</h1>'
+
+# Carbon Services Monitoring Integration
+try:
+    from carbon_service_monitor import get_carbon_service_data_sync, get_carbon_service_summary, get_carbon_service_logs, cleanup_carbon_monitor
+    CARBON_SERVICES_AVAILABLE = True
+    print("✅ Carbon services monitoring loaded successfully")
+except ImportError as e:
+    print(f"⚠️ Carbon services monitoring not available: {e}")
+    CARBON_SERVICES_AVAILABLE = False
+
+@app.route('/Services')
+def services_dashboard():
+    """Carbon Services Monitoring Dashboard"""
+    try:
+        with open('templates/carbon_service_dashboard.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return '''
+        <html><head><title>Error</title></head><body>
+        <h1>❌ Carbon Services Dashboard Template Not Found</h1>
+        <p>Please ensure templates/carbon_service_dashboard.html exists</p>
+        <a href="/">← Back to Dashboard</a>
+        </body></html>
+        ''', 404
+
+@app.route('/api/services/health')
+@gzip_response
+def api_carbon_services_health():
+    """API endpoint for carbon services health data"""
+    try:
+        carbon_data = get_carbon_services_sync()
+        return jsonify(carbon_data)  # Return full object with services, summary, logs
+    except Exception as e:
+        return jsonify({
+            'error': f'Error fetching carbon services data: {str(e)}',
+            'carbon_receipt': {
+                'name': 'Carbon Receipt API',
+                'status': 'error',
+                'error_message': str(e)
+            },
+            'carbon_footprint': {
+                'name': 'Carbon Footprint API',
+                'status': 'error', 
+                'error_message': str(e)
             }
-            
-            .status-cards {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .header h1 {
-                font-size: 20px;
-            }
-            
-            .theme-toggle {
-                position: relative;
-                margin-top: 10px;
-            }
-            
-            .chart-container {
-                height: 250px;
-            }
-            
-            .tabs {
-                flex-direction: column;
-            }
-            
-            .tab {
-                margin-bottom: 5px;
-            }
-        }
+        }), 500
+
+@app.route('/api/services/summary')
+@gzip_response
+def api_carbon_services_summary():
+    """API endpoint for carbon services summary metrics"""
+    try:
+        carbon_data = get_carbon_services_sync()
+        return jsonify(carbon_data['summary'])
+    except Exception as e:
+        return jsonify({
+            'error': f'Error fetching services summary: {str(e)}',
+            'total_services': 0,
+            'healthy_services': 0,
+            'warning_services': 0,
+            'error_services': 0,
+            'availability_percentage': 0,
+            'total_requests': 0,
+            'successful_requests': 0,
+            'failed_requests': 0,
+            'success_rate': 0,
+            'avg_response_time': 0,
+            'last_updated': None
+        }), 500
+
+@app.route('/api/services/logs')
+@gzip_response
+def api_carbon_services_logs():
+    """API endpoint for carbon services logs"""
+    try:
+        level_filter = request.args.get('level', '')
+        service_filter = request.args.get('service', '')
+        limit = int(request.args.get('limit', 50))
         
-        .keyboard-shortcuts {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
+        carbon_data = get_carbon_services_sync()
+        logs = carbon_data.get('logs', [])
         
-        .keyboard-shortcuts.show {
-            opacity: 1;
-            visibility: visible;
-        }
+        # Apply filters
+        if level_filter:
+            logs = [log for log in logs if log['level'] == level_filter]
+        if service_filter:
+            logs = [log for log in logs if service_filter in log['service']]
+            
+        # Apply limit
+        logs = logs[:limit]
         
-        .feature-highlight {
-            background: linear-gradient(45deg, var(--info-color), var(--primary-color));
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+        return jsonify(logs)
         
-        .feature-highlight h4 {
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-        
-        .feature-highlight p {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-    </style>
-</head>
-<body>
-    <div class="keyboard-shortcuts" id="shortcuts">
-        <strong>Keyboard Shortcuts:</strong><br>
-        R - Refresh data<br>
-        T - Toggle theme<br>
-        1,2,3 - Switch tabs<br>
-        ? - Show/hide shortcuts
-    </div>
-
-    <div class="header">
-        <h1>🖥️ VM Infrastructure Dashboard
-            <span class="version-badge">v2.0</span>
-        </h1>
-        <p>Real-time monitoring system
-            <span class="data-source-indicator" id="dataSourceIndicator">Loading...</span>
-            <span class="performance-indicator compressed" id="compressionIndicator">GZIP</span>
-        </p>
-        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙 Dark Mode</button>
-    </div>
-
-    <div class="feature-highlight">
-        <h4>🚀 New in v2.0</h4>
-        <p>📈 Historical trends charts • 🗜️ 70% faster API responses • 📊 24-hour analytics • ⚡ Smart caching</p>
-    </div>
-
-    <div class="tabs">
-        <button class="tab active" onclick="showTab('overview')">📊 Overview</button>
-        <button class="tab" onclick="showTab('trends')">📈 Trends</button>
-        <button class="tab" onclick="showTab('alerts')">🚨 Alerts</button>
-    </div>
-
-    <div class="loading" id="loading">
-        <div class="spinner"></div>
-        🔄 Loading enhanced dashboard...
-    </div>
-
-    <div id="dashboard" style="display: none;">
-        <!-- Overview Tab -->
-        <div id="overview-tab" class="tab-content active">
-            <div class="status-cards">
-                <div class="status-card">
-                    <div class="number" id="totalVMs">--</div>
-                    <div class="label">Total VMs</div>
-                </div>
-                <div class="status-card">
-                    <div class="number" id="onlineVMs" style="color: #4CAF50;">--</div>
-                    <div class="label">Online</div>
-                </div>
-                <div class="status-card">
-                    <div class="number" id="offlineVMs" style="color: #F44336;">--</div>
-                    <div class="label">Offline</div>
-                </div>
-                <div class="status-card">
-                    <div class="number" id="uptimePercentage">--%</div>
-                    <div class="label">Uptime</div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>📊 Performance Metrics</h3>
-                <div class="metrics">
-                    <div class="metric">
-                        <span class="metric-name">🔥 CPU Usage</span>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="cpuBar" style="background: #FF6B6B;"></div>
-                        </div>
-                        <span class="metric-value" id="cpuValue">--%</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-name">🧠 Memory Usage</span>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="memoryBar" style="background: #4ECDC4;"></div>
-                        </div>
-                        <span class="metric-value" id="memoryValue">--%</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-name">💾 Disk Usage</span>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="diskBar" style="background: #45B7D1;"></div>
-                        </div>
-                        <span class="metric-value" id="diskValue">--%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Trends Tab -->
-        <div id="trends-tab" class="tab-content">
-            <div class="section">
-                <h3>📈 24-Hour Performance Trends</h3>
-                
-                <div class="stats-grid" id="trendsStats">
-                    <div class="stat-card">
-                        <div class="stat-value" id="avgCpu24h">--%</div>
-                        <div class="stat-label">Avg CPU 24h</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <div class="stat-value" id="maxCpu24h">--%</div>
-                        <div class="stat-label">Peak CPU 24h</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="avgMemory24h">--%</div>
-                        <div class="stat-label">Avg Memory 24h</div>
-                    </div>
-                    <div class="stat-card success">
-                        <div class="stat-value" id="uptime24h">--%</div>
-                        <div class="stat-label">Uptime 24h</div>
-                    </div>
-                </div>
-                
-                <div class="chart-container">
-                    <canvas id="performanceChart"></canvas>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>🔗 VM Status Timeline</h3>
-                <div class="chart-container">
-                    <canvas id="statusChart"></canvas>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>🚨 Alerts Timeline</h3>
-                <div class="chart-container">
-                    <canvas id="alertsChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Alerts Tab -->
-        <div id="alerts-tab" class="tab-content">
-            <div class="section">
-                <h3>🚨 System Alerts</h3>
-                <div id="alertsContainer">
-                    <!-- Alerts will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="footer">
-        <button class="refresh-btn" onclick="loadDashboardData()">🔄 Refresh</button>
-        <button class="refresh-btn" onclick="loadTrendsData()">📈 Update Trends</button>
-        <button class="refresh-btn" onclick="toggleShortcuts()">⌨️ Shortcuts</button>
-        <br><br>
-        <div id="lastUpdated">Last updated: --</div>
-        <div id="cacheInfo" style="font-size: 10px; margin-top: 5px;">Cache: --</div>
-        <div id="performanceInfo" style="font-size: 10px; margin-top: 2px;">Performance: --</div>
-    </div>
-
-    <script>
-        let dashboardData = null;
-        let trendsData = null;
-        let refreshInterval = null;
-        let showShortcuts = false;
-        let performanceChart = null;
-        let statusChart = null;
-        let alertsChart = null;
-        let currentTab = 'overview';
-
-        // Tab management
-        function showTab(tabName) {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab content
-            document.getElementById(tabName + '-tab').classList.add('active');
-            
-            // Add active class to clicked tab
-            event.target.classList.add('active');
-            
-            currentTab = tabName;
-            
-            // Load trends data if trends tab is opened
-            if (tabName === 'trends' && !trendsData) {
-                loadTrendsData();
-            }
-        }
-
-        // Theme management
-        function toggleTheme() {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            document.getElementById('themeToggle').textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            
-            // Update charts for theme
-            updateChartsTheme();
-        }
-
-        // Load saved theme
-        function loadTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').textContent = '☀️ Light Mode';
-            }
-        }
-
-        // Show/hide keyboard shortcuts
-        function toggleShortcuts() {
-            showShortcuts = !showShortcuts;
-            const shortcuts = document.getElementById('shortcuts');
-            shortcuts.classList.toggle('show', showShortcuts);
-        }
-
-        // Load dashboard data with performance tracking
-        async function loadDashboardData() {
-            const startTime = performance.now();
-            
-            try {
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('dashboard').style.display = 'none';
-
-                const response = await fetch('/api/dashboard', {
-                    headers: {
-                        'Accept-Encoding': 'gzip, deflate'
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                dashboardData = data;
-                
-                const endTime = performance.now();
-                const loadTime = endTime - startTime;
-                
-                updateDashboard(data);
-                updatePerformanceInfo(loadTime, response);
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('dashboard').style.display = 'block';
-                
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                showError(`Failed to load dashboard: ${error.message}`);
-            }
-        }
-
-        // Load trends data
-        async function loadTrendsData() {
-            const startTime = performance.now();
-            
-            try {
-                const response = await fetch('/api/trends', {
-                    headers: {
-                        'Accept-Encoding': 'gzip, deflate'
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                trendsData = data.trends;
-                
-                const endTime = performance.now();
-                const loadTime = endTime - startTime;
-                
-                updateTrendsData(trendsData);
-                updateChartsData(trendsData);
-                
-                console.log(`📈 Trends loaded in ${loadTime.toFixed(2)}ms`);
-                
-            } catch (error) {
-                console.error('Error loading trends data:', error);
-            }
-        }
-
-        // Update dashboard with data
-        function updateDashboard(data) {
-            // Update status cards
-            document.getElementById('totalVMs').textContent = data.total || 0;
-            document.getElementById('onlineVMs').textContent = data.online || 0;
-            document.getElementById('offlineVMs').textContent = data.offline || 0;
-            document.getElementById('uptimePercentage').textContent = `${data.uptime_percentage || 0}%`;
-
-            // Update performance metrics
-            const performance = data.performance || {};
-            updateMetric('cpu', performance.cpu || 0);
-            updateMetric('memory', performance.memory || 0);
-            updateMetric('disk', performance.disk || 0);
-
-            // Update alerts
-            updateAlerts(data.alerts || []);
-
-            // Update data source indicator
-            updateDataSourceIndicator(data.data_source, data.system_status);
-
-            // Update footer info
-            const lastUpdated = new Date(data.last_updated || Date.now()).toLocaleString();
-            document.getElementById('lastUpdated').textContent = `Last updated: ${lastUpdated}`;
-            
-            const cacheAge = data.cache_age_seconds || 0;
-            document.getElementById('cacheInfo').textContent = 
-                `Cache: ${cacheAge.toFixed(1)}s old | Source: ${data.data_source || 'unknown'} | API: ${data.api_version || '1.0'}`;
-        }
-
-        // Update trends statistics
-        function updateTrendsData(trends) {
-            if (!trends || !trends.summary_stats) return;
-            
-            const stats = trends.summary_stats;
-            
-            document.getElementById('avgCpu24h').textContent = `${stats.avg_cpu_24h || 0}%`;
-            document.getElementById('maxCpu24h').textContent = `${stats.max_cpu_24h || 0}%`;
-            document.getElementById('avgMemory24h').textContent = `${stats.avg_memory_24h || 0}%`;
-            document.getElementById('uptime24h').textContent = `${stats.uptime_24h || 0}%`;
-        }
-
-        // Update performance metric
-        function updateMetric(type, value) {
-            const bar = document.getElementById(`${type}Bar`);
-            const valueElement = document.getElementById(`${type}Value`);
-            
-            if (bar && valueElement) {
-                bar.style.width = `${Math.min(value, 100)}%`;
-                valueElement.textContent = `${value}%`;
-                
-                // Color based on value
-                let color = '#4CAF50'; // Green
-                if (value > 80) color = '#F44336'; // Red
-                else if (value > 60) color = '#FF9800'; // Orange
-                
-                bar.style.background = color;
-            }
-        }
-
-        // Update alerts section
-        function updateAlerts(alerts) {
-            const container = document.getElementById('alertsContainer');
-            container.innerHTML = '';
-
-            if (!alerts || alerts.length === 0) {
-                container.innerHTML = `
-                    <div class="alert success">
-                        <div class="alert-icon">✅</div>
-                        <div class="alert-content">
-                            <div class="alert-title">All Systems Normal</div>
-                            <div class="alert-detail">No active alerts detected</div>
-                        </div>
-                        <div class="alert-time">Now</div>
-                    </div>
-                `;
-                return;
-            }
-
-            alerts.forEach(alert => {
-                const alertElement = document.createElement('div');
-                alertElement.className = `alert ${alert.type}`;
-                
-                let icon = '📋';
-                if (alert.type === 'critical') icon = '🚨';
-                else if (alert.type === 'warning') icon = '⚠️';
-                else if (alert.type === 'success') icon = '✅';
-                
-                alertElement.innerHTML = `
-                    <div class="alert-icon">${icon}</div>
-                    <div class="alert-content">
-                        <div class="alert-title">${alert.title || 'Alert'}</div>
-                        <div class="alert-detail">${alert.detail || 'No details'}</div>
-                    </div>
-                    <div class="alert-time">${alert.time || 'Unknown'}</div>
-                `;
-                
-                container.appendChild(alertElement);
-            });
-        }
-
-        // Update data source indicator
-        function updateDataSourceIndicator(source, status) {
-            const indicator = document.getElementById('dataSourceIndicator');
-            indicator.className = 'data-source-indicator';
-            
-            if (source === 'zabbix' && status === 'healthy') {
-                indicator.textContent = 'Live Data';
-                indicator.classList.add('data-source-zabbix');
-            } else if (source === 'demo' || source === 'demo_fallback') {
-                indicator.textContent = 'Demo Mode';
-                indicator.classList.add('data-source-demo');
-            } else {
-                indicator.textContent = 'Error Mode';
-                indicator.classList.add('data-source-error');
-            }
-        }
-
-        // Update performance information
-        function updatePerformanceInfo(loadTime, response) {
-            const isCompressed = response.headers.get('content-encoding') === 'gzip';
-            const contentLength = response.headers.get('content-length');
-            
-            let performanceText = `Load: ${loadTime.toFixed(2)}ms`;
-            if (isCompressed) {
-                performanceText += ` | Compressed: Yes`;
-                document.getElementById('compressionIndicator').style.display = 'inline-block';
-            } else {
-                document.getElementById('compressionIndicator').style.display = 'none';
-            }
-            
-            if (contentLength) {
-                const sizeKB = (parseInt(contentLength) / 1024).toFixed(1);
-                performanceText += ` | Size: ${sizeKB}KB`;
-            }
-            
-            document.getElementById('performanceInfo').textContent = performanceText;
-        }
-
-        // Initialize and update charts
-        function initializeCharts() {
-            const isDark = document.body.classList.contains('dark-mode');
-            const textColor = isDark ? '#ffffff' : '#333333';
-            const gridColor = isDark ? '#444444' : '#e0e0e0';
-            
-            // Performance Chart
-            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
-            performanceChart = new Chart(performanceCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: 'CPU %',
-                            data: [],
-                            borderColor: '#FF6B6B',
-                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Memory %',
-                            data: [],
-                            borderColor: '#4ECDC4',
-                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Disk %',
-                            data: [],
-                            borderColor: '#45B7D1',
-                            backgroundColor: 'rgba(69, 183, 209, 0.1)',
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: textColor
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        y: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            },
-                            beginAtZero: true,
-                            max: 100
-                        }
-                    }
-                }
-            });
-
-            // VM Status Chart
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
-            statusChart = new Chart(statusCtx, {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: 'Online VMs',
-                            data: [],
-                            backgroundColor: 'rgba(76, 175, 80, 0.8)',
-                            borderColor: '#4CAF50',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Offline VMs',
-                            data: [],
-                            backgroundColor: 'rgba(244, 67, 54, 0.8)',
-                            borderColor: '#F44336',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: textColor
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            },
-                            stacked: true
-                        },
-                        y: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            },
-                            stacked: true,
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-
-            // Alerts Chart
-            const alertsCtx = document.getElementById('alertsChart').getContext('2d');
-            alertsChart = new Chart(alertsCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: 'Active Alerts',
-                            data: [],
-                            borderColor: '#FF9800',
-                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: textColor
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        y: {
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            },
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-
-        // Update charts with trends data
-        function updateChartsData(trends) {
-            if (!trends || !performanceChart) return;
-
-            // Update performance chart
-            if (trends.performance_trends) {
-                performanceChart.data.labels = trends.performance_trends.labels;
-                performanceChart.data.datasets[0].data = trends.performance_trends.cpu_data;
-                performanceChart.data.datasets[1].data = trends.performance_trends.memory_data;
-                performanceChart.data.datasets[2].data = trends.performance_trends.disk_data;
-                performanceChart.update();
-            }
-
-            // Update VM status chart
-            if (trends.vm_status_trends) {
-                statusChart.data.labels = trends.vm_status_trends.labels;
-                statusChart.data.datasets[0].data = trends.vm_status_trends.online_data;
-                statusChart.data.datasets[1].data = trends.vm_status_trends.offline_data;
-                statusChart.update();
-            }
-
-            // Update alerts chart
-            if (trends.alerts_trends) {
-                alertsChart.data.labels = trends.alerts_trends.labels;
-                alertsChart.data.datasets[0].data = trends.alerts_trends.alerts_data;
-                alertsChart.update();
-            }
-        }
-
-        // Update charts theme
-        function updateChartsTheme() {
-            if (!performanceChart) return;
-            
-            const isDark = document.body.classList.contains('dark-mode');
-            const textColor = isDark ? '#ffffff' : '#333333';
-            const gridColor = isDark ? '#444444' : '#e0e0e0';
-            
-            [performanceChart, statusChart, alertsChart].forEach(chart => {
-                if (chart) {
-                    chart.options.plugins.legend.labels.color = textColor;
-                    chart.options.scales.x.ticks.color = textColor;
-                    chart.options.scales.x.grid.color = gridColor;
-                    chart.options.scales.y.ticks.color = textColor;
-                    chart.options.scales.y.grid.color = gridColor;
-                    chart.update();
-                }
-            });
-        }
-
-        // Show error message
-        function showError(message) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('dashboard').innerHTML = `
-                <div class="error">
-                    <h3>❌ Error Loading Dashboard</h3>
-                    <p>${message}</p>
-                    <button class="refresh-btn" onclick="loadDashboardData()">🔄 Retry</button>
-                </div>
-            `;
-            document.getElementById('dashboard').style.display = 'block';
-        }
-
-        // Auto-refresh functionality
-        function startAutoRefresh() {
-            if (refreshInterval) clearInterval(refreshInterval);
-            refreshInterval = setInterval(() => {
-                loadDashboardData();
-                // Update trends if on trends tab
-                if (currentTab === 'trends') {
-                    loadTrendsData();
-                }
-            }, 30000); // 30 seconds
-        }
-
-        function stopAutoRefresh() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-                refreshInterval = null;
-            }
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(event) {
-            // Ignore if user is typing in an input field
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-                return;
-            }
-
-            switch(event.key.toLowerCase()) {
-                case 'r':
-                    event.preventDefault();
-                    loadDashboardData();
-                    if (currentTab === 'trends') {
-                        loadTrendsData();
-                    }
-                    break;
-                case 't':
-                    event.preventDefault();
-                    toggleTheme();
-                    break;
-                case '1':
-                    event.preventDefault();
-                    showTab('overview');
-                    document.querySelectorAll('.tab')[0].click();
-                    break;
-                case '2':
-                    event.preventDefault();
-                    showTab('trends');
-                    document.querySelectorAll('.tab')[1].click();
-                    break;
-                case '3':
-                    event.preventDefault();
-                    showTab('alerts');
-                    document.querySelectorAll('.tab')[2].click();
-                    break;
-                case '?':
-                    event.preventDefault();
-                    toggleShortcuts();
-                    break;
-            }
-        });
-
-        // Page visibility API for auto-refresh management
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                stopAutoRefresh();
-            } else {
-                startAutoRefresh();
-                loadDashboardData(); // Refresh when page becomes visible
-                if (currentTab === 'trends') {
-                    loadTrendsData();
-                }
-            }
-        });
-
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            loadTheme();
-            loadDashboardData();
-            
-            // Initialize charts after a short delay to ensure DOM is ready
-            setTimeout(() => {
-                initializeCharts();
-            }, 500);
-            
-            startAutoRefresh();
-        });
-
-        // Handle page unload
-        window.addEventListener('beforeunload', function() {
-            stopAutoRefresh();
-        });
-
-        // Handle tab clicks
-        document.querySelectorAll('.tab').forEach((tab, index) => {
-            tab.addEventListener('click', function() {
-                const tabNames = ['overview', 'trends', 'alerts'];
-                showTab(tabNames[index]);
-            });
-        });
-    </script>
-</body>
-</html>'''
+    except Exception as e:
+        return jsonify([{
+            'timestamp': datetime.now().isoformat(),
+            'level': 'ERROR',
+            'service': 'system',
+            'message': f'Error fetching logs: {str(e)}',
+            'details': {'error': str(e)}
+        }]), 500
 
 @app.route('/status')
 def status():
     """Health check with enhanced info"""
     return jsonify({
         'status': 'ok',
-        'service': 'VM Mobile Dashboard API v2.0 - Enhanced',
+        'service': 'VM Mobile Dashboard API v2.0 - Enhanced + Carbon Services',
         'timestamp': datetime.now().isoformat(),
-        'version': '2.0.0-enhanced',
+        'version': '2.0.1-carbon-services',
         'features': [
             'Zabbix Integration' if ZABBIX_AVAILABLE else 'Demo Mode',
             'Alert System' if ALERTS_AVAILABLE else 'Basic Alerts',
+            'Carbon Services Monitoring' if CARBON_SERVICES_AVAILABLE else 'Carbon Services Unavailable',
             'Historical Trends Charts',
             'Gzip Compression',
             'Smart Caching',
-            'Dark Mode Support',
             'Performance Analytics',
             'Real-time Updates'
         ],
@@ -1878,29 +1263,34 @@ def status():
         'modules': {
             'zabbix': ZABBIX_AVAILABLE,
             'alerts': ALERTS_AVAILABLE,
+            'carbon_services': CARBON_SERVICES_AVAILABLE,
             'gzip_compression': True,
             'chart_js': True
         }
     })
 
 if __name__ == '__main__':
-    print("🚀 Starting Enhanced VM Mobile Dashboard API v2.0...")
+    print("🚀 Starting Enhanced VM Mobile Dashboard API v2.0 + Carbon Services...")
     print("🆕 New Features:")
     print("   📈 Historical Trends Charts (24-hour data)")
     print("   🗜️ Gzip Compression (up to 70% size reduction)")
     print("   📊 Performance Analytics & Statistics")
     print("   ⚡ Optimized Caching System")
     print("   🎛️ Tabbed Interface (Overview/Trends/Alerts)")
+    print("   🌱 Carbon Services Monitoring Dashboard")
     print("")
     print("📱 Enhanced Mobile Dashboard: http://localhost:5000/mobile")
+    print("🌱 Carbon Services Dashboard: http://localhost:5000/Services")
     print("🔌 Compressed API Endpoint: http://localhost:5000/api/dashboard")
     print("📈 Trends Data API: http://localhost:5000/api/trends")
+    print("🌱 Carbon Services API: http://localhost:5000/api/services/health")
     print("💚 Health Check: http://localhost:5000/status")
     print("🔧 Debug Info: http://localhost:5000/debug")
     print("")
     print("✨ Performance Features:")
     print(f"   📊 Zabbix Integration: {'✅ Available' if ZABBIX_AVAILABLE else '❌ Not Available'}")
     print(f"   🚨 Alert System: {'✅ Available' if ALERTS_AVAILABLE else '❌ Not Available'}")
+    print(f"   🌱 Carbon Services: {'✅ Available' if CARBON_SERVICES_AVAILABLE else '❌ Not Available'}")
     print("   🗜️ Gzip Compression: ✅ Enabled")
     print("   📈 Chart.js Integration: ✅ Enabled")
     print("   🔄 Smart Caching: ✅ 30s dashboard + 5m trends")
