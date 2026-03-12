@@ -31,6 +31,18 @@ If wrapper path fails:
 1. Run direct fallback:
    - `python3 daily_report.py --simple`
 
+## Temporary Strict Guard Exception (Zabbix default credentials)
+- Purpose:
+  - Allow strict-mode production run temporarily when `ZABBIX_USER`/`ZABBIX_PASS` are still default-like placeholders.
+- Enable:
+  - Set `ALLOW_DEFAULT_ZABBIX_CREDENTIALS=true` in `.env`
+- Behavior:
+  - Strict guard logs warnings for default-like Zabbix credentials, but does not abort startup.
+- Exit this exception mode (required after credential rotation):
+  1. Update `ZABBIX_USER` and `ZABBIX_PASS` to real non-default production values.
+  2. Set `ALLOW_DEFAULT_ZABBIX_CREDENTIALS=false`.
+  3. Re-run `./scripts/phase5_test_gate.sh .` and confirm strict checks pass.
+
 ## Non-destructive cleanup workflow
 - Candidate listing only:
   - `./scripts/archive_legacy_candidates.sh`

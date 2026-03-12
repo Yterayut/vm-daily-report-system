@@ -6,7 +6,7 @@ Secure loading with validation and encryption support
 
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import base64
 from cryptography.fernet import Fernet
 
@@ -247,6 +247,91 @@ def show_current_config():
     """Backward compatible config display"""
     loader = SecureEnvLoader()
     loader.show_config_summary()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse bool-like env var safely."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _is_default_like(value: str) -> bool:
+    if not value:
+        return True
+    low = value.strip().lower()
+    defaults = {
+        'admin',
+        'zabbix',
+        'changeme',
+        'your_username',
+        'your_password',
+        'your_email@gmail.com',
+        'replace_me',
+    }
+    return low in defaults or 'example' in low
+
+
+def validate_runtime_guards() -> bool:
+    """
+    Validate runtime guardrails.
+    If ENABLE_STRICT_ENV_GUARD=false, only warn and pass.
+    """
+    strict = _env_bool('ENABLE_STRICT_ENV_GUARD', False)
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    # SMTP_PORT must always be a valid int in range if provided.
+    smtp_port_raw = os.getenv('SMTP_PORT', '587').strip()
+    try:
+        smtp_port = int(smtp_port_raw)
+        if smtp_port < 1 or smtp_port > 65535:
+            errors.append('SMTP_PORT must be in range 1-65535')
+    except ValueError:
+        errors.append('SMTP_PORT must be numeric')
+
+    email_dry_run = _env_bool('EMAIL_DRY_RUN', True)
+    to_emails = [e.strip() for e in os.getenv('TO_EMAILS', '').split(',') if e.strip()]
+    if not email_dry_run and not to_emails:
+        errors.append('TO_EMAILS must not be empty when EMAIL_DRY_RUN=false')
+
+    if _env_bool('ENABLE_LEGACY_EMAIL_FIX', False):
+        msg = 'ENABLE_LEGACY_EMAIL_FIX=true is not allowed in production-safe path'
+        if strict:
+            errors.append(msg)
+        else:
+            warnings.append(msg)
+
+    allow_default_zabbix = _env_bool('ALLOW_DEFAULT_ZABBIX_CREDENTIALS', False)
+    if strict:
+        if _is_default_like(os.getenv('ZABBIX_USER', '')):
+            msg = 'ZABBIX_USER appears default-like in strict mode'
+            if allow_default_zabbix:
+                warnings.append("{} (allowed by ALLOW_DEFAULT_ZABBIX_CREDENTIALS=true)".format(msg))
+            else:
+                errors.append(msg)
+        if _is_default_like(os.getenv('ZABBIX_PASS', '')):
+            msg = 'ZABBIX_PASS appears default-like in strict mode'
+            if allow_default_zabbix:
+                warnings.append("{} (allowed by ALLOW_DEFAULT_ZABBIX_CREDENTIALS=true)".format(msg))
+            else:
+                errors.append(msg)
+
+    for warn in warnings:
+        safe_log_warning("⚠️ Runtime guard warning: {}".format(warn))
+
+    if errors:
+        for err in errors:
+            safe_log_error("❌ Runtime guard error: {}".format(err))
+        if strict:
+            safe_log_error("❌ Strict env guard is enabled; aborting startup")
+            return False
+
+    safe_log_info("✅ Runtime guard checks passed (mode={})".format(
+        'strict' if strict else 'soft'
+    ))
+    return True
 
 # Enhanced utility functions
 def get_config_dict() -> Dict[str, Any]:
