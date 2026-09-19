@@ -362,11 +362,12 @@ class ComprehensiveEmailSender:
         
         # Get service health data
         service_summary = service_health_data.get('summary', {}) if service_health_data else {}
-        total_services = service_summary.get('total_count', 5)
-        healthy_services = service_summary.get('healthy_count', 4)
-        warning_services = service_summary.get('warning_count', 1)
-        critical_services = service_summary.get('critical_count', 0)
-        availability_percentage = service_summary.get('availability_percentage', 80.0)
+        # Accept both report-generator keys (total/healthy/...) and legacy checker keys (*_count)
+        total_services = service_summary.get('total_count', service_summary.get('total', 0))
+        healthy_services = service_summary.get('healthy_count', service_summary.get('healthy', 0))
+        warning_services = service_summary.get('warning_count', service_summary.get('warning', 0))
+        critical_services = service_summary.get('critical_count', service_summary.get('critical', 0))
+        availability_percentage = service_summary.get('availability_percentage', service_summary.get('availability', 0.0))
         
         # Determine performance status colors
         def get_status_color(value, warning_threshold=70, critical_threshold=90):
@@ -667,11 +668,11 @@ class ComprehensiveEmailSender:
             service_info = f"""
 SERVICE HEALTH SUMMARY
 {"="*40}
-Total Services: {svc_summary.get('total_count', 0)}
-Healthy: {svc_summary.get('healthy_count', 0)}
-Warning: {svc_summary.get('warning_count', 0)}
-Critical: {svc_summary.get('critical_count', 0)}
-Availability: {svc_summary.get('availability_percentage', 0):.1f}%
+Total Services: {svc_summary.get('total_count', svc_summary.get('total', 0))}
+Healthy: {svc_summary.get('healthy_count', svc_summary.get('healthy', 0))}
+Warning: {svc_summary.get('warning_count', svc_summary.get('warning', 0))}
+Critical: {svc_summary.get('critical_count', svc_summary.get('critical', 0))}
+Availability: {svc_summary.get('availability_percentage', svc_summary.get('availability', 0)):.1f}%
 """
         
         return f"""VM INFRASTRUCTURE DAILY REPORT
