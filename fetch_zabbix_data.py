@@ -647,6 +647,7 @@ class EnhancedZabbixClient:
             # PRIORITY 1: Zabbix 7.0 standard formats (FIXED for dependent items)
             priority_keys = [
                 'vfs.fs.dependent.size[/,pused]',        # Zabbix 7.0 dependent items (FIXED!)
+                'vfs.fs.dependent.size[C:,pused]',       # Zabbix 7.0 Windows template (C: drive)
                 'vfs.fs.size[/,pused]',                  # Standard format
                 'vfs.fs.size["/",pused]',                # With quotes
                 'vfs.fs.pused[/]',                       # Simple format
